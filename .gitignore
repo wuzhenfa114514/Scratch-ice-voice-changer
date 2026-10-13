@@ -1,0 +1,16 @@
+# 操作系统 / 编辑器垃圾
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.vscode/
+.idea/
+
+# Node 构建残留（本库纯前端，无依赖）
+node_modules/
+npm-debug.log*
+
+# 打包脚本可能产生的临时文件
+*.tmp
+*.tmp.node
