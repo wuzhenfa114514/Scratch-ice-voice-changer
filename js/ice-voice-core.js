@@ -24,8 +24,8 @@
  *   - 'js'：纯 JavaScript 逐样本实现，Node.js 与无 WebAudio 环境可用；
  *     压缩器按 Web Audio 规范语义实现，与浏览器内置存在极小样本级差异。
  *
- * 变调：相位声码器（phase vocoder）时间拉伸 + 重采样，
- *       只改音高、不改速度（与 Scratch 的「更快/更慢」不同，那两个会同时变速）。
+ * 变调：OLA 时拉伸 + 重采样（preserveDuration=true 时只改音高、不改速度）；
+ *       preserveDuration=false 时直接重采样，音高与速度同时改变。
  *
  * UMD：浏览器挂 window.IceVoice；Node 用 require('ice-voice-core')。
  * MIT License.
@@ -39,7 +39,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
     'use strict';
 
-    var VERSION = '2.0.0';
+    var VERSION = '2.1.0';
 
     /* ---------------------------------------------------------
      * 一、算法常量（与上游 robot-effect.js 逐值对应）
@@ -522,105 +522,109 @@
      * @param {number} semitones -24..+24
      * @param {object} [opts] {fftSize=2048, onProgress}
      */
+    // 线性重采样：out.length = round(x.length * factor)。factor<1 升调(更快)，factor>1 降调。
+    function resample(x, factor) {
+        var inLen = x.length;
+        var outLen = Math.max(1, Math.round(inLen * factor));
+        var out = new Float32Array(outLen);
+        for (var i = 0; i < outLen; i++) {
+            var pos = i / factor;
+            var i0 = Math.floor(pos);
+            var f = pos - i0;
+            var a = x[i0 < inLen ? i0 : inLen - 1];
+            var b = x[i0 + 1 < inLen ? i0 + 1 : inLen - 1];
+            out[i] = a + (b - a) * f;
+        }
+        return out;
+    }
+
+    /**
+     * 单声道变调（time-stretch + 重采样 相位声码器，时长守恒）。
+     * - preserveDuration（默认 true）：时拉伸 1/ratio（合成跳变 Hs=H*ratio）→ 重采样回原长 → 只改音高、不改速度。
+     * - preserveDuration=false：直接线性重采样 → 音高与速度同时改变（chipmunk 效果）。
+     */
     function pitchShiftMono(x, sampleRate, semitones, opts) {
         opts = opts || {};
         if (!semitones || Math.abs(semitones) < 1e-9) return x.slice();
+        var ratio = Math.pow(2, semitones / 12);
+        if (opts.preserveDuration === false) return resample(x, 1 / ratio);
         var N = opts.fftSize || 2048;
         if (N < 256) N = 256;
+        // FFT 长度向上取 2 的幂
+        var p2 = 256; while (p2 < N) p2 <<= 1; N = p2;
         var H = N / 4;
-        var ratio = Math.pow(2, semitones / 12);
-        var len = x.length;
-        var stretchedLen = Math.max(Math.ceil(len * ratio), N + H);
-        var Hs = H * ratio;
         var bins = N / 2 + 1;
-
-        var w = new Float32Array(N);
-        for (var i = 0; i < N; i++) w[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
-
-        var nAna = Math.max(1, Math.floor((len - N) / H) + 1);
-        var nSyn = Math.max(1, Math.floor((stretchedLen - N) / Hs) + 1);
-        var expectedAna = 2 * Math.PI * H / N;   // 每 bin 每分析帧的预期相位推进 ×k
-        var expectedSyn = 2 * Math.PI * Hs / N;  // 每 bin 每合成帧的预期相位推进 ×k
-
+        var Hs = H * ratio;
+        var win = new Float32Array(N);
+        for (var i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+        var len = x.length;
+        var pad = N;                                     // 两侧补零：避免边界窗和过小 → 除出爆音
+        var plen = len + 2 * pad;
+        var stretchedLen = Math.ceil(plen * ratio) + N;
         var out = new Float32Array(stretchedLen);
         var winSum = new Float32Array(stretchedLen);
         var re = new Float32Array(N);
         var im = new Float32Array(N);
         var sumPhase = new Float32Array(bins);
+        var expectedAna = 2 * Math.PI * H / N;
+        var expectedSyn = 2 * Math.PI * Hs / N;
+        var nSyn = Math.max(1, Math.floor((stretchedLen - N) / Hs) + 1);
         var frameCache = new Map();
-
         function getFrame(idx) {
             var f = frameCache.get(idx);
             if (f) return f;
-            if (idx < 0 || idx >= nAna) {
-                f = { mag: new Float32Array(bins), ph: new Float32Array(bins) };
-            } else {
+            var base = idx * H - pad;                    // 补零域索引 → 原信号索引
+            var mag = new Float32Array(bins), ph = new Float32Array(bins);
+            if (base < len && base + N > 0) {
                 re.fill(0); im.fill(0);
-                var off = idx * H;
-                for (var j = 0; j < N; j++) {
-                    var s = (off + j < len) ? x[off + j] : 0;
-                    re[j] = s * w[j];
-                }
+                var j0 = base < 0 ? -base : 0;
+                var j1 = (base + N > len) ? len - base : N;
+                for (var j = j0; j < j1; j++) re[j] = x[base + j] * win[j];
                 fft(re, im);
-                var mag = new Float32Array(bins), ph = new Float32Array(bins);
                 for (var k = 0; k < bins; k++) {
                     mag[k] = Math.sqrt(re[k] * re[k] + im[k] * im[k]);
                     ph[k] = Math.atan2(im[k], re[k]);
                 }
-                f = { mag: mag, ph: ph };
             }
+            f = { mag: mag, ph: ph };
+            if (frameCache.size > 256) frameCache.clear();
             frameCache.set(idx, f);
-            if (frameCache.size > 4) {
-                var minKey = Infinity;
-                frameCache.forEach(function (v, kk) { if (kk < minKey) minKey = kk; });
-                frameCache.delete(minKey);
-            }
             return f;
         }
-
         for (var jj = 0; jj < nSyn; jj++) {
-            var t = jj * Hs / H;
-            var i0 = Math.floor(t);
-            var frac = t - i0;
-            var f0 = getFrame(i0);
-            var f1 = getFrame(i0 + 1);
-            var fm = i0 > 0 ? getFrame(i0 - 1) : null;
+            var f0 = getFrame(jj);
+            var fm = jj > 0 ? getFrame(jj - 1) : null;
             for (var kk = 0; kk < bins; kk++) {
-                var magI = f0.mag[kk] * (1 - frac) + f1.mag[kk] * frac;
                 var dPhase = 0;
                 if (fm) dPhase = princarg(f0.ph[kk] - fm.ph[kk] - expectedAna * kk);
                 if (jj === 0) sumPhase[kk] = f0.ph[kk];
                 else sumPhase[kk] += expectedSyn * kk + dPhase;
-                var sr = Math.cos(sumPhase[kk]) * magI;
-                var si = Math.sin(sumPhase[kk]) * magI;
-                re[kk] = sr; im[kk] = si;
-                if (kk > 0 && kk < N / 2) { re[N - kk] = sr; im[N - kk] = -si; }
+                var sre = Math.cos(sumPhase[kk]) * f0.mag[kk];
+                var sim = Math.sin(sumPhase[kk]) * f0.mag[kk];
+                re[kk] = sre; im[kk] = sim;
+                if (kk > 0 && kk < N / 2) { re[N - kk] = sre; im[N - kk] = -sim; }
             }
             ifft(re, im);
             var off2 = Math.round(jj * Hs);
             for (var n2 = 0; n2 < N; n2++) {
                 var idx2 = off2 + n2;
                 if (idx2 < stretchedLen) {
-                    var s2 = re[n2] * w[n2];
-                    out[idx2] += s2;
-                    winSum[idx2] += w[n2] * w[n2];
+                    out[idx2] += re[n2] * win[n2];
+                    winSum[idx2] += win[n2] * win[n2];
                 }
             }
-            if (opts.onProgress && (jj & 63) === 0) {
-                opts.onProgress({ stage: 'pitch', done: jj, total: nSyn });
-            }
+            if (opts.onProgress && (jj & 63) === 0) opts.onProgress({ stage: 'pitch', done: jj, total: nSyn });
         }
-        for (i = 0; i < stretchedLen; i++) {
-            if (winSum[i] > 1e-8) out[i] /= winSum[i];
-        }
-        // 重采样回原始长度（读快 ratio 倍 → 时长不变、音高 ×ratio）
+        for (var o = 0; o < stretchedLen; o++) if (winSum[o] > 1e-6) out[o] /= winSum[o];
+        // 取回真正信号段（跳过补零区），重采样回原长 → 时长不变、音高 ×ratio
+        var start = Math.round(pad * ratio);
         var y = new Float32Array(len);
         for (var m = 0; m < len; m++) {
-            var pos = m * ratio;
+            var pos = start + m * ratio;
             var i3 = Math.floor(pos);
             var f3 = pos - i3;
-            var a = out[Math.min(i3, stretchedLen - 1)];
-            var b = out[Math.min(i3 + 1, stretchedLen - 1)];
+            var a = out[i3 < stretchedLen ? i3 : stretchedLen - 1];
+            var b = out[i3 + 1 < stretchedLen ? i3 + 1 : stretchedLen - 1];
             y[m] = a + (b - a) * f3;
         }
         return y;
@@ -650,9 +654,10 @@
 
     function normalizePeak(channels, targetDb) {
         targetDb = (targetDb === undefined) ? -1 : targetDb;
+        var target = Math.pow(10, targetDb / 20);
         var p = peakOf(channels);
-        if (p <= 0 || p >= Math.pow(10, targetDb / 20)) return channels;
-        var g = Math.pow(10, targetDb / 20) / p;
+        if (p <= 1e-4) return channels;      // 近乎静音，不做放大（避免抬噪）
+        var g = target / p;                  // 过响也压下来，避免浏览器 / WAV 削波
         for (var c = 0; c < channels.length; c++) {
             var d = channels[c];
             for (var i = 0; i < d.length; i++) d[i] *= g;
@@ -862,6 +867,105 @@
     }
 
     /* ---------------------------------------------------------
+     * 七、特效指令脚本（序列式处理）
+     * --------------------------------------------------------- */
+
+    /**
+     * 归一化脚本文本：把常见全角 / 异体字符换成半角，避免「看起来一样却报错」。
+     *   ＋ → +   －/–/—/− → -   （） → ()   ，、； → ,   全角数字 → 半角数字
+     */
+    function normalizeScriptText(text) {
+        return String(text)
+            .replace(/[\uFF0B\u2795]/g, '+')
+            .replace(/[\uFF0D\u2010\u2011\u2012\u2013\u2014\u2212\u2796]/g, '-')
+            .replace(/[\uFF08]/g, '(').replace(/[\uFF09]/g, ')')
+            .replace(/[\uFF0C\u3001\uFF1B;]/g, ',')
+            .replace(/[\uFF10-\uFF19]/g, function (ch) {
+                return String.fromCharCode(ch.charCodeAt(0) - 0xFF10 + 0x30);
+            });
+    }
+
+    /**
+     * 解析特效指令脚本。
+     * 语法：逗号分隔的步骤，例：「机械，变调(-5)，机械，变调(-7)」
+     *   - 机械 [ (频率Hz) ]            ：叠加一层机械音效（频率默认 50）
+     *   - 变调(半音) / 升调(半音) / 降调(半音) ：变调，半音可带 + / - 号
+     * 支持中英文逗号与空格、全角括号与全角正负号；空段（如连续两个逗号）自动忽略。
+     * 返回 { steps, error }；error 非空时 steps 为空数组。
+     */
+    function parseScript(text) {
+        if (typeof text !== 'string') return { steps: [], error: '指令为空' };
+        var norm = normalizeScriptText(text);
+        // 切分逗号；去掉空段（支持用户手写时多打逗号 / 末尾逗号）
+        var raw = norm.split(',')
+            .map(function (s) { return s.trim(); })
+            .filter(function (s) { return s.length; });
+        if (!raw.length) return { steps: [], error: '没有有效步骤' };
+        var steps = [];
+        for (var i = 0; i < raw.length; i++) {
+            var tok = raw[i];
+            var m;
+            if ((m = tok.match(/^机械\s*(?:\(\s*([\d.]+)\s*\))?$/))) {
+                var freq = m[1] ? parseFloat(m[1]) : ROBOT.carrierFreq;
+                if (!(freq > 0)) return { steps: [], error: '第 ' + (i + 1) + ' 步「' + tok + '」频率无效' };
+                steps.push({ type: 'robot', freq: freq });
+            } else if ((m = tok.match(/^(?:变调|[升降]调)\s*\(?\s*([+\-]?\d+(?:\.\d+)?)\s*\)?$/))) {
+                var semi = parseFloat(m[1]);
+                if (tok.indexOf('升') === 0) semi = Math.abs(semi);
+                else if (tok.indexOf('降') === 0) semi = -Math.abs(semi);
+                if (semi < -24 || semi > 24) return { steps: [], error: '第 ' + (i + 1) + ' 步变调超出 ±24 半音' };
+                steps.push({ type: 'pitch', semitones: semi });
+            } else {
+                return { steps: [], error: '无法识别第 ' + (i + 1) + ' 步：「' + tok + '」（应为 机械 / 变调(N)，用逗号分隔）' };
+            }
+        }
+        return { steps: steps, error: null };
+    }
+
+    /**
+     * 按顺序执行特效脚本。
+     * @param {string} text 指令脚本
+     * @param {object} audio { channels:Float32Array[], sampleRate, length? }
+     * @param {object} opts { preserveDuration=true, normalize=true, onProgress }
+     * @returns {object} { channels, sampleRate }
+     */
+    function transformScript(text, audio, opts) {
+        opts = opts || {};
+        var parsed = parseScript(text);
+        if (parsed.error) throw new Error(parsed.error);
+        var sampleRate = audio.sampleRate;
+        var channels = [];
+        for (var c = 0; c < audio.channels.length; c++) channels.push(audio.channels[c].slice());
+        var steps = parsed.steps;
+        for (var s = 0; s < steps.length; s++) {
+            var step = steps[s];
+            if (opts.onProgress) opts.onProgress({ stage: 'step', index: s + 1, total: steps.length, type: step.type });
+            if (step.type === 'robot') {
+                var shared = {
+                    shape: makeWaveShaper(buildDiodeCurve()),
+                    carrier: buildCarrierTable(sampleRate, step.freq),
+                    hp: highpassCoeffs(sampleRate, ROBOT.highpass.freq, ROBOT.highpass.q),
+                    comp: makeCompressor(sampleRate)
+                };
+                for (var ch = 0; ch < channels.length; ch++) {
+                    channels[ch] = applyRobotLayer(channels[ch], sampleRate, {
+                        freq: step.freq, shape: shared.shape, carrier: shared.carrier,
+                        hp: shared.hp, comp: shared.comp
+                    });
+                }
+            } else {
+                for (var ch2 = 0; ch2 < channels.length; ch2++) {
+                    channels[ch2] = pitchShiftMono(channels[ch2], sampleRate, step.semitones, {
+                        preserveDuration: opts.preserveDuration !== false
+                    });
+                }
+            }
+        }
+        if (opts.normalize !== false) normalizePeak(channels, -1);
+        return { channels: channels, sampleRate: sampleRate };
+    }
+
+    /* ---------------------------------------------------------
      * 八、自检
      * --------------------------------------------------------- */
 
@@ -964,6 +1068,9 @@
         makeCompressor: makeCompressor,
         applyRobotLayer: applyRobotLayer,
         pitchShiftMono: pitchShiftMono,
+        parseScript: parseScript,
+        normalizeScriptText: normalizeScriptText,
+        transformScript: transformScript,
         transformChannels: transformChannels,
         // WebAudio 引擎
         hasWebAudio: hasWebAudio,

@@ -53,16 +53,11 @@
   .row{display:flex;flex-wrap:wrap;gap:14px}
   .field{flex:1 1 220px}
   .field label{display:block;font-size:12.5px;color:var(--dim);margin-bottom:7px}
-  .field .val{color:var(--ice);font-weight:600}
-  input[type=range]{width:100%;accent-color:var(--ice2)}
   select,input[type=number]{
     width:100%;background:#0a1120;color:var(--txt);border:1px solid var(--line);
     border-radius:9px;padding:9px 10px;font-size:13px;outline:none;
   }
   select:focus,input:focus{border-color:var(--ice2)}
-  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .seg button{background:transparent;color:var(--dim);border:0;padding:8px 14px;font-size:13px;cursor:pointer}
-  .seg button.on{background:rgba(125,249,255,.16);color:var(--ice)}
   .btn{
     background:linear-gradient(90deg,var(--ice3),var(--ice2));color:#04121c;border:0;
     border-radius:11px;padding:12px 20px;font-size:14px;font-weight:700;cursor:pointer;
@@ -89,6 +84,25 @@
   pre{background:#060b15;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;font-size:11.5px;color:#bfe0ff}
   a{color:var(--ice2)}
   .pill{display:inline-block;font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;margin-left:6px}
+
+  /* ---- 序列式 UI 新增样式 ---- */
+  .script{width:100%;background:#0a1120;color:var(--txt);border:1px solid var(--line);
+    border-radius:9px;padding:10px;font-size:13px;outline:none;resize:vertical;min-height:62px;
+    font-family:ui-monospace,Menlo,Consolas,"Microsoft YaHei",monospace;line-height:1.5}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);
+    background:rgba(125,249,255,.08);color:var(--ice2)}
+  .chip.bad{color:var(--bad);border-color:rgba(255,122,144,.4);background:rgba(255,122,144,.08)}
+  .qbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+  .qbtn{background:rgba(125,249,255,.08);color:var(--ice2);border:1px solid var(--line);
+    border-radius:9px;padding:7px 12px;font-size:13px;cursor:pointer;
+    white-space:nowrap;flex:0 0 auto}
+  .qbtn:hover{background:rgba(125,249,255,.16)}
+  .qnum{width:74px;background:#0a1120;color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:6px 8px;font-size:13px;flex:0 0 auto}
+  .pathbox{background:#0a1120;border:1px solid var(--line);border-radius:9px;padding:9px 10px;
+    font-size:12.5px;color:var(--dim);word-break:break-all;margin-top:8px}
+  .pathbox b{color:var(--ice2)}
 </style>
 </head>
 <body>
@@ -97,7 +111,7 @@
     <h1>❄ 寒冰变声器</h1>
     <p>把任意音频叠上 N 层 Scratch / TurboWarp「机械」音效，并可不变速升/降调 —— 寒冰动画同款搞笑特效</p>
     <span class="badge" id="verifyBtn">🔍 校验上游算法 (Scratch robot-effect.js)</span>
-    <span class="pill" id="verInfo">核心库 v2.0.0</span>
+    <span class="pill" id="verInfo">核心库 v2.1.0</span>
   </header>
 
   <!-- 1. 导入 -->
@@ -111,38 +125,38 @@
     <div class="status" id="fileStatus">尚未导入音频</div>
   </div>
 
-  <!-- 2. 参数 -->
+  <!-- 2. 序列指令 -->
   <div class="card">
-    <h2><span class="n">2</span> 寒冰特效参数</h2>
-    <div class="row">
-      <div class="field">
-        <label>寒冰层数 N（机械音效叠加遍数）：<span class="val" id="layersVal">3</span></label>
-        <input id="layers" type="range" min="1" max="20" step="1" value="3" />
-        <div class="note">层数越高，机械/冰冷感越强。1 层已明显，3~6 层是日常搞笑档，10+ 层非常夸张。</div>
+    <h2><span class="n">2</span> 寒冰特效序列</h2>
+
+    <div class="field" style="flex:1 1 100%">
+      <label>自定义序列 —— 按你写的顺序 <b>从上到下依次处理</b>，可任意顺序、无限叠加。用逗号分隔，例：<code>机械，变调(-5)，机械，变调(-7)</code></label>
+      <textarea id="script" class="script">机械</textarea>
+      <div class="chips" id="chips"></div>
+
+      <div class="note">「＋变调」按钮使用的半音值：<input id="pitchAdd" class="qnum" type="number" min="-24" max="24" step="1" value="-5" /></div>
+
+      <div class="qbar">
+        <button class="qbtn" id="addRobot">＋ 机械</button>
+        <button class="qbtn" id="addPitch">＋ 变调</button>
+        <button class="qbtn" id="addUp">＋ 升调</button>
+        <button class="qbtn" id="addDown">＋ 降调</button>
+        <button class="qbtn" id="clearScript">清空</button>
       </div>
-      <div class="field">
-        <label>变调（半音，<b>不变速</b>）：<span class="val" id="pitchVal">0</span></label>
-        <input id="pitch" type="range" min="-12" max="12" step="1" value="0" />
-        <div class="note" id="pitchHint">0 = 原调。正数升调、负数降调，时长不变（相位声码器）。</div>
-      </div>
-    </div>
-    <div class="row" style="margin-top:14px">
-      <div class="field">
-        <label>处理顺序</label>
-        <div class="seg" id="orderSeg">
-          <button data-v="pitch-first" class="on">先变调 → 再寒冰</button>
-          <button data-v="ice-first">先寒冰 → 再变调</button>
-        </div>
-      </div>
-      <div class="field">
-        <label>引擎（一般自动即可）</label>
-        <select id="engine">
-          <option value="js" selected>纯 JS（推荐·最稳·跨浏览器）</option>
-          <option value="webaudio">WebAudio（浏览器原生·实验性）</option>
-          <option value="auto">自动</option>
-        </select>
+      <div class="note" style="margin-top:8px">
+        <b>顺序就是指令的先后</b>：写在前面的先做，写在后面的后做，一步都省不掉、也不会自动重排。<br>
+        例：<code>机械，机械，变调(-12)</code> = 先叠 2 层机械、再降 12 半音 ·
+        <code>变调(-12)，机械</code> = 先降 12 半音、再叠 1 层机械（听感不同）·
+        机械可带载波频率：<code>机械(50)</code>。<br>
+        逗号中英文都行，多打的空逗号会被自动忽略。
       </div>
     </div>
+
+    <div class="chk">
+      <input type="checkbox" id="preserve" checked />
+      <label for="preserve" style="cursor:pointer">保持音频原速（变调时只改音高、不改速度）</label>
+    </div>
+    <div class="note" style="margin-top:4px">取消勾选后，变调会同时改变音高与速度（似松鼠/慢放效果）。</div>
   </div>
 
   <!-- 3. 处理 -->
@@ -153,7 +167,7 @@
       <button class="btn ghost" id="downloadBtn" disabled>⬇ 下载寒冰版 WAV</button>
       <button class="btn ghost" id="downloadOrigBtn" disabled>⬇ 下载原声 WAV</button>
     </div>
-    <label class="chk"><input type="checkbox" id="autoDl" checked /> 处理完成后自动下载寒冰版</label>
+    <label class="chk"><input type="checkbox" id="autoDl" /> 处理完成后自动下载寒冰版</label>
     <div class="prog"><i id="progBar"></i></div>
     <div class="status" id="procStatus">等待导入音频…</div>
 
@@ -171,38 +185,36 @@
     </div>
   </div>
 
-  <!-- 4. E 盘缓存/备份 -->
+  <!-- 4. 工作区缓存与保存 -->
   <div class="card">
-    <h2><span class="n">4</span> 本地工作区缓存与备份</h2>
-    <div class="note">
-      推荐工作区：把本工具文件夹放到任意本地目录（例如 <b>D:\ice-voice</b> 或移动硬盘）<br>
-      点「连接工作区」选择一个目录（建议选 E 盘目录）后，每次处理的结果会自动保存到此目录下的 <b>输出/</b> 子目录，并额外备份一份到 <b>backups/</b>。<br>
-      未连接工作区时，「自动下载」会落到浏览器默认下载目录（通常是 C 盘）；连接 E 盘工作区后可避免往系统盘写大文件。需要 Chromium 内核浏览器（Edge / Chrome）。
-    </div>
-    <div class="actions" style="margin-top:12px">
-      <button class="btn ghost" id="connectBtn">🔗 连接 E 盘工作区</button>
+    <h2><span class="n">4</span> 工作区（缓存 / 保存）</h2>
+    <div class="actions">
+      <button class="btn ghost" id="connectCacheBtn">📁 选择缓存路径</button>
+      <button class="btn ghost" id="connectSaveBtn">💾 选择保存路径</button>
       <button class="btn ghost" id="backupNowBtn" disabled>💾 立即备份当前结果</button>
     </div>
-    <div class="status" id="fsStatus">未连接（将使用浏览器下载）</div>
+    <div class="pathbox">缓存路径：<b id="cachePath">未连接（使用浏览器默认下载）</b></div>
+    <div class="pathbox">保存路径：<b id="savePath">未连接（处理完仅浏览器下载）</b></div>
+    <div class="note" style="margin-top:8px">分别连接 E 盘的<b>缓存目录</b>与<b>保存目录</b>（可不同）。保存目录会自建「输出 /」放成品、「backups /」放备份。需 Chromium 内核浏览器（Edge / Chrome）。</div>
   </div>
 
   <!-- 5. 给开发者的 API -->
   <div class="card">
     <h2><span class="n">5</span> 给开发者 / AI 的接入方式</h2>
     <div class="note">
-      本工具的核心算法全部封装在 <b>js/ice-voice-core.js</b>（UMD，浏览器与 Node 通用）。
-      把它当成「AI 变声插件之后的特效插件」即可：拿到任意 AudioBuffer / WAV 数据 → 调 <code>IceVoice.transformBuffer / transformChannels</code> → 得到寒冰版。
+      核心算法封装在 <b>js/ice-voice-core.js</b>（UMD，浏览器与 Node 通用）。
+      支持两种调用：<code>transformChannels</code>（{channels,sampleRate} 格式）与
+      <code>transformScript</code>（指令脚本序列），以及浏览器专用的 <code>transformBuffer</code>（AudioBuffer）。
     </div>
     <details>
       <summary>浏览器中调用（点击展开）</summary>
-      <pre>// 1) 引入核心库 &lt;script src="js/ice-voice-core.js"&gt;&lt;/script&gt;
-const out = await IceVoice.transformBuffer(audioBuffer, {
-  layers: 3,            // 寒冰层数 N
-  pitchSemitones: 5,    // 升 5 半音，不变速；0 = 不变调
-  order: 'pitch-first', // 'pitch-first' | 'ice-first'
-  engine: 'auto'        // 'webaudio'(浏览器) | 'js' | 'auto'
-});
-// out 是 AudioBuffer，可直接播放或 encodeWav 导出</pre>
+      <pre>// 引入核心库 &lt;script src="js/ice-voice-core.js"&gt;&lt;/script&gt;
+// 序列式：机械×2 → 降 5 半音 → 机械 → 降 7 半音（不变速）
+const res = IceVoice.transformScript('机械，机械，变调(-5)，机械，变调(-7)', {
+  channels: IceVoice.audioBufferToChannels(audioBuffer),
+  sampleRate: audioBuffer.sampleRate
+}, { preserveDuration: true, normalize: true });
+// res = { channels:Float32Array[], sampleRate }，可编码 WAV 或转回 AudioBuffer</pre>
     </details>
     <details>
       <summary>Node.js 中调用（点击展开）</summary>
@@ -210,7 +222,8 @@ const out = await IceVoice.transformBuffer(audioBuffer, {
 const fs = require('fs');
 const wav = fs.readFileSync('in.wav');
 const audio = IceVoice.decodeWav(wav.buffer.slice(wav.byteOffset, wav.byteOffset + wav.byteLength));
-const res = IceVoice.transformChannels(audio, { layers: 4, pitchSemitones: -3 });
+// 解析与执行指令脚本
+const res = IceVoice.transformScript('机械，变调(-12)，机械', audio, { preserveDuration:true });
 fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
     </details>
     <div class="note" style="margin-top:8px">
@@ -253,10 +266,10 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
   var state = {
     origBuffer: null, procBuffer: null,
     origUrl: null, procUrl: null,
-    dirHandle: null, lastBlob: null, lastName: ''
+    cacheDir: null, saveDir: null, lastBlob: null, lastName: ''
   };
-  // 确保「自动下载」默认开启（用户诉求：自动下载默认打开）
-  if ($('autoDl')) $('autoDl').checked = true;
+  // 自动下载默认「关闭」（用户诉求：默认不选）
+  if ($('autoDl')) $('autoDl').checked = false;
 
   // ---------- 1. 导入 ----------
   var drop = $('drop'), fileInput = $('file');
@@ -304,26 +317,57 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
   function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 
-  // ---------- 2. 参数联动 ----------
-  $('layers').addEventListener('input', function(){ $('layersVal').textContent = this.value; });
-  $('pitch').addEventListener('input', function(){
-    var v = parseInt(this.value, 10);
-    $('pitchVal').textContent = (v>0?'+':'') + v;
-    $('pitchHint').textContent = v===0 ? '0 = 原调。正数升调、负数降调，时长不变（相位声码器）。'
-      : (v>0 ? '升 ' + v + ' 半音（不变速）' : '降 ' + (-v) + ' 半音（不变速）');
-  });
-  var orderSeg = $('orderSeg');
-  orderSeg.addEventListener('click', function(e){
-    if (e.target.tagName !== 'BUTTON') return;
-    [].forEach.call(orderSeg.children, function(b){ b.classList.remove('on'); });
-    e.target.classList.add('on');
-  });
-  function getOrder(){ return orderSeg.querySelector('.on').getAttribute('data-v'); }
-    function getEngine(){
-      var v = $('engine').value;
-      if (v === 'auto' || !v) return 'js'; // auto 默认纯 JS 引擎
-      return v;
+  // ---------- 2. 序列指令 ----------
+  var scriptEl = $('script'), chipsEl = $('chips');
+  function clampInt(v, lo, hi, dflt){
+    var n = parseInt(v, 10); if (isNaN(n)) n = dflt;
+    return Math.max(lo, Math.min(hi, n));
+  }
+  function appendStep(s){
+    var cur = scriptEl.value.trim();
+    scriptEl.value = cur ? (cur + '，' + s) : s;
+    updateChips();
+  }
+  function updateChips(){
+    var text = scriptEl.value.trim();
+    var parsed = IceVoice.parseScript(text);
+    chipsEl.innerHTML = '';
+    if (!text){ return; }
+    if (parsed.error){
+      var c = document.createElement('span');
+      c.className = 'chip bad'; c.textContent = '✗ ' + parsed.error;
+      chipsEl.appendChild(c); return;
     }
+    parsed.steps.forEach(function(st){
+      var c = document.createElement('span');
+      c.className = 'chip';
+      c.textContent = st.type === 'robot' ? ('机械' + (st.freq !== 50 ? '(' + st.freq + ')' : ''))
+                                          : ('变调' + (st.semitones>0?'+':'') + st.semitones);
+      chipsEl.appendChild(c);
+    });
+    var info = document.createElement('span');
+    info.className = 'chip'; info.style.background = 'rgba(95,255,166,.10)'; info.style.color = 'var(--ok)';
+    info.textContent = '共 ' + parsed.steps.length + ' 步';
+    chipsEl.appendChild(info);
+  }
+  $('addRobot').addEventListener('click', function(){ appendStep('机械'); });
+  $('addPitch').addEventListener('click', function(){
+    var v = clampInt($('pitchAdd').value, -24, 24, -5);
+    appendStep('变调(' + v + ')');
+  });
+  $('addUp').addEventListener('click', function(){
+    var v = Math.abs(clampInt($('pitchAdd').value, -24, 24, 5));
+    appendStep('变调(+' + v + ')');
+  });
+  $('addDown').addEventListener('click', function(){
+    var v = -Math.abs(clampInt($('pitchAdd').value, -24, 24, 5));
+    appendStep('变调(' + v + ')');
+  });
+  $('clearScript').addEventListener('click', function(){ scriptEl.value = ''; updateChips(); });
+  scriptEl.addEventListener('input', updateChips);
+
+  // 数字快捷 → 已合并进「＋ 机械 / ＋ 变调」按钮，不再需要单独的套用按钮
+  updateChips();
 
   // ---------- 3. 处理 ----------
   $('processBtn').addEventListener('click', process);
@@ -332,49 +376,71 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
 
   function process(){
     if (!state.origBuffer) return;
-    var btn = $('processBtn');
-    btn.disabled = true;
+    var btn = $('processBtn'); btn.disabled = true;
+
+    var text = scriptEl.value.trim();
+    var parsed = IceVoice.parseScript(text);
+    if (parsed.error){
+      setProc('✗ 指令错误：' + parsed.error);
+      btn.disabled = false; return;
+    }
+    var preserve = $('preserve').checked;
     var opts = {
-      layers: parseInt($('layers').value, 10),
-      pitchSemitones: parseInt($('pitch').value, 10),
-      order: getOrder(),
-      engine: getEngine(),
+      preserveDuration: preserve,
       normalize: true,
       onProgress: function(p){
-        var ratio = p.stage === 'ice' ? 0.7 : 0.3;
-        var layerPart = p.stage === 'ice' ? (p.layer / p.total) : (p.done / Math.max(1,p.total));
-        setProg(ratio * layerPart + (p.stage === 'pitch' ? 0.0 : 0.0));
-        setProc(p.stage === 'ice' ? ('寒冰处理中 第 ' + p.layer + '/' + p.total + ' 层…')
-          : ('变调处理中 ' + p.done + '/' + p.total + '…'));
+        setProg(p.index / p.total);
+        setProc('处理中 第 ' + p.index + '/' + p.total + ' 步：' +
+          (p.type === 'robot' ? '机械音效' : '变调 ' + (p.semitones>0?'+':'') + p.semitones + ' 半音'));
       }
     };
-    setProc('开始处理…');
-    IceVoice.transformBuffer(state.origBuffer, opts).then(function(out){
-      state.procBuffer = out;
-      revoke(state.procUrl);
-      state.procUrl = bufToUrl(out);
-      $('iceAudio').src = state.procUrl;
-      $('iceMeta').textContent = out.sampleRate + ' Hz · ' + out.numberOfChannels + ' 声道';
-      $('iceDur').textContent = out.duration.toFixed(2) + ' s';
-      setProg(1);
-      setProc('✅ 处理完成，可对比预览。' + (opts.pitchSemitones ? '（已变调 ' + (opts.pitchSemitones>0?'+':'') + opts.pitchSemitones + ' 半音，时长不变）' : ''));
-      $('downloadBtn').disabled = false;
-      $('backupNowBtn').disabled = !state.dirHandle;
-      btn.disabled = false;
-      // 自动下载
-      if ($('autoDl').checked) downloadIce();
-    }).catch(function(e){
-      var msg = (e && (e.message || e.stack)) || e || '未知错误';
-      setProc('<span class="bad">处理出错：</span> ' + msg);
+    setProc('开始处理…'); setProg(0);
+
+    // transformScript 同步执行：{channels} → {channels,sampleRate}
+    var channels = IceVoice.audioBufferToChannels(state.origBuffer);
+    var result;
+    try {
+      result = IceVoice.transformScript(text, {
+        channels: channels, sampleRate: state.origBuffer.sampleRate
+      }, opts);
+    } catch(e){
+      setProc('<span class="bad">处理出错：</span> ' + ((e && e.message) || e));
       console.error('[寒冰变声器] 处理失败：', e);
-      btn.disabled = false;
-    });
+      btn.disabled = false; return;
+    }
+
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    var ctx = new Ctx();
+    var outBuf = IceVoice.channelsToAudioBuffer(ctx, result.channels, result.sampleRate);
+
+    state.procBuffer = outBuf;
+    revoke(state.procUrl);
+    state.procUrl = bufToUrl(outBuf);
+    $('iceAudio').src = state.procUrl;
+    $('iceMeta').textContent = outBuf.sampleRate + ' Hz · ' + outBuf.numberOfChannels + ' 声道';
+    $('iceDur').textContent = outBuf.duration.toFixed(2) + ' s';
+    var durChanged = Math.abs(outBuf.duration - state.origBuffer.duration) > 0.02;
+    setProg(1);
+    setProc('✅ 处理完成，可对比预览。' +
+      (preserve ? '（变调保持原速）' : (durChanged ? '（变调同时改变速度）' : '（不变速）')));
+    $('downloadBtn').disabled = false;
+    $('backupNowBtn').disabled = !(state.saveDir || state.cacheDir);
+    btn.disabled = false;
+    if ($('autoDl').checked) downloadIce();
   }
 
   // ---------- 下载 ----------
   function makeBlob(buffer){
     var wav = IceVoice.encodeWav({ sampleRate: buffer.sampleRate, channels: IceVoice.audioBufferToChannels(buffer), length: buffer.length }, 16);
     return { blob: new Blob([wav], { type:'audio/wav' }), buf: wav };
+  }
+  function scriptTag(){
+    var p = IceVoice.parseScript(scriptEl.value.trim());
+    if (p.error) return 'seq';
+    var tag = p.steps.map(function(st){
+      return st.type === 'robot' ? '机械' : ('变调' + (st.semitones>0?'+':'') + st.semitones);
+    }).join('_');
+    return tag.length > 40 ? 'seq' : tag;
   }
   function fname(tag){
     var d = new Date();
@@ -391,10 +457,10 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
   function downloadIce(){
     if (!state.procBuffer) return;
     var m = makeBlob(state.procBuffer);
-    state.lastBlob = m.blob; state.lastName = fname('L'+$('layers').value+'_P'+$('pitch').value);
+    state.lastBlob = m.blob; state.lastName = fname(scriptTag());
     triggerDownload(m.blob, state.lastName);
     setProc('⬇ 已下载：' + state.lastName);
-    if (state.dirHandle) saveToWorkspace(m.blob, state.lastName);
+    if (state.saveDir || state.cacheDir) saveToWorkspace(m.blob, state.lastName);
   }
   function downloadOrig(){
     if (!state.origBuffer) return;
@@ -404,35 +470,43 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
   $('downloadBtn').addEventListener('click', downloadIce);
   $('downloadOrigBtn').addEventListener('click', downloadOrig);
 
-  // ---------- 4. E 盘工作区 ----------
+  // ---------- 4. 工作区缓存 / 保存 ----------
   var hasFSA = ('showDirectoryPicker' in window);
-  $('connectBtn').addEventListener('click', async function(){
-    if (!hasFSA){
-      $('fsStatus').innerHTML = '<span class="warn">当前浏览器不支持文件夹访问（需 Edge/Chrome）。将仅使用浏览器下载，不写 C 盘。</span>';
-      return;
-    }
-    try{
-      var h = await window.showDirectoryPicker();
-      state.dirHandle = h;
-      $('fsStatus').innerHTML = '<span class="ok">已连接：</span> ' + h.name +
-        '（输出→工具默认保存输出音频路径/，备份→backups/）';
-      $('backupNowBtn').disabled = !state.procBuffer;
-    }catch(e){
-      $('fsStatus').innerHTML = '<span class="warn">未选择文件夹：</span>' + (e.message||e);
-    }
+  function enableBackup(){ $('backupNowBtn').disabled = !(state.saveDir || state.cacheDir); }
+  async function pickDir(label){
+    if (!hasFSA){ return null; }
+    try{ return await window.showDirectoryPicker(); }
+    catch(e){ return { __err: (e && e.message) || e }; }
+  }
+  $('connectCacheBtn').addEventListener('click', async function(){
+    if (!hasFSA){ $('cachePath').innerHTML = '<span class="warn">当前浏览器不支持文件夹访问（需 Edge/Chrome），将仅用浏览器下载</span>'; return; }
+    var h = await pickDir('cache');
+    if (!h){ $('cachePath').innerHTML = '<span class="warn">未选择文件夹</span>'; return; }
+    if (h.__err){ $('cachePath').innerHTML = '<span class="warn">未选择：</span>' + escapeHtml(h.__err); return; }
+    state.cacheDir = h;
+    $('cachePath').innerHTML = '<b>' + escapeHtml(h.name) + '</b>（已连接，处理缓存在此）';
+  });
+  $('connectSaveBtn').addEventListener('click', async function(){
+    if (!hasFSA){ $('savePath').innerHTML = '<span class="warn">当前浏览器不支持文件夹访问（需 Edge/Chrome）</span>'; return; }
+    var h = await pickDir('save');
+    if (!h){ $('savePath').innerHTML = '<span class="warn">未选择文件夹</span>'; return; }
+    if (h.__err){ $('savePath').innerHTML = '<span class="warn">未选择：</span>' + escapeHtml(h.__err); return; }
+    state.saveDir = h;
+    $('savePath').innerHTML = '<b>' + escapeHtml(h.name) + '</b> → 输出 / 与 backups /';
+    enableBackup();
   });
 
   async function saveToWorkspace(blob, name){
-    if (!state.dirHandle) return;
+    var dir = state.saveDir || state.cacheDir;
+    if (!dir) return;
     try{
-      var outDir = await state.dirHandle.getDirectoryHandle('工具默认保存输出音频路径', { create:true });
+      var outDir = await dir.getDirectoryHandle('输出', { create:true });
       await writeFile(outDir, name, blob);
-      var bkDir = await state.dirHandle.getDirectoryHandle('backups', { create:true });
+      var bkDir = await dir.getDirectoryHandle('backups', { create:true });
       await writeFile(bkDir, name, blob);
-      $('fsStatus').innerHTML = '<span class="ok">已保存到 E 盘工作区：</span> ' + name +
-        '（输出 + 备份 各一份）';
+      $('savePath').innerHTML = '已保存：<b>' + escapeHtml(name) + '</b>（输出 + 备份 各一份）';
     }catch(e){
-      $('fsStatus').innerHTML = '<span class="bad">写入工作区失败：</span>' + (e.message||e) + '（已通过浏览器下载兜底）';
+      $('savePath').innerHTML = '<span class="bad">写入工作区失败：</span>' + escapeHtml(e.message||e) + '（已通过浏览器下载兜底）';
     }
   }
   async function writeFile(dir, name, blob){
@@ -442,8 +516,17 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
   }
   $('backupNowBtn').addEventListener('click', function(){
     if (state.lastBlob) saveToWorkspace(state.lastBlob, state.lastName);
-    else if (state.procBuffer){ var m = makeBlob(state.procBuffer); state.lastBlob=m.blob; state.lastName=fname('L'+$('layers').value); saveToWorkspace(m.blob, state.lastName); }
+    else if (state.procBuffer){ var m = makeBlob(state.procBuffer); state.lastBlob=m.blob; state.lastName=fname(scriptTag()); saveToWorkspace(m.blob, state.lastName); }
   });
+
+  // ---------- 原声 / 寒冰版 互相打断 ----------
+  var origAudio = $('origAudio'), iceAudio = $('iceAudio');
+  function stopOthers(except){
+    if (except !== origAudio) origAudio.pause();
+    if (except !== iceAudio) iceAudio.pause();
+  }
+  origAudio.addEventListener('play', function(){ stopOthers(origAudio); });
+  iceAudio.addEventListener('play', function(){ stopOthers(iceAudio); });
 
   // ---------- 校验上游算法 ----------
   $('verifyBtn').addEventListener('click', async function(){

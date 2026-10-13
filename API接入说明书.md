@@ -70,19 +70,52 @@ const res = IceVoice.transformChannels(audio, {
 fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16))); // 16/24/32(float)
 ```
 
-### 2.3 WAV 编解码
+### 2.3 序列式（v2.1 推荐）：`transformScript` / `parseScript`
+
+把「处理顺序」写成一条逗号分隔的指令。**处理顺序 = 你书写的先后顺序**：写在前面的先执行，后面的后执行，
+不会自动重排、也不会省略任何一步；机械与变调可任意穿插、无限叠加。
+
+**指令语法**：
+
+- `机械` 或 `机械(<频率Hz>)`：叠加一层机械音效（频率默认 50）。
+- `变调(<半音>)` / `升调(<半音>)` / `降调(<半音>)`：变调，半音范围 ±24；`升调` 取正、`降调` 取负。
+- 半音可带或不带正负号（`变调(+5)` ≡ `变调(5)`）；支持中英文逗号与空格；全角括号 `（）`、全角数字、全角正负号
+  `＋－` 都会被自动归一为半角；连续逗号产生的空段自动忽略。
+- 例如 `机械，变调(-5)，机械，变调(-7)`。
+
+```js
+// 1) 先解析（校验语法，返回 { steps, error }）
+const parsed = IceVoice.parseScript('机械，变调(-5)，机械');
+// parsed.steps = [{type:'robot',freq:50},{type:'pitch',semitones:-5},{type:'robot',freq:50}]
+// 语法错误时 parsed.error 为字符串，parsed.steps 为空
+// 另有 IceVoice.normalizeScriptText(text) 可单独做全角/异体字符归一
+
+// 2) 再执行（同步；输入/输出都是 { channels:Float32Array[], sampleRate }）
+const audio = IceVoice.decodeWav(buf);                 // 或从 AudioBuffer 取 channels
+const out = IceVoice.transformScript('机械，变调(-12)，机械', audio, {
+  preserveDuration: true,   // true（默认）：变调只改音高、不改速度；false：音高+速度同时变
+  normalize: true
+});
+// out = { channels:Float32Array[], sampleRate }
+```
+
+> 浏览器里把 `transformBuffer` 换成「取 channels → `transformScript` → 转回 AudioBuffer」即可：
+> `IceVoice.channelsToAudioBuffer(ctx, out.channels, out.sampleRate)`。
+
+### 2.4 WAV 编解码
 
 - `IceVoice.decodeWav(arrayBuffer) => { sampleRate, channels: Float32Array[], length, bitDepth }`
   支持 PCM 16/24/32 bit 与 IEEE float 32/64 bit。
 - `IceVoice.encodeWav(audio, bitDepth, floatFlag?) => ArrayBuffer`
   `bitDepth` = 16 | 24 | 32；传 `'32f'` 或第三参 `true` 输出 float32 WAV。
 
-### 2.4 工具 / 自检
+### 2.5 工具 / 自检
 
 - `IceVoice.hasWebAudio() => boolean`
 - `IceVoice.selfTest() => { ok, checks }`：算法自检（WAV 往返、机械边带、载波抑制、多层递进、变调频率 / 时长）。**发布前跑一遍确认算法没漂。**
 - `IceVoice.audioBufferToChannels(buf)` / `IceVoice.channelsToAudioBuffer(ctx, channels, sr)`：AudioBuffer ↔ Float32Array[] 互转。
 - `IceVoice.SOURCE`：上游算法出处与记录的 sha256，用于在线校验。
+- `IceVoice.parseScript(text)` / `IceVoice.transformScript(text, audio, opts)`：序列式接口（见 2.3）。
 
 ---
 
@@ -94,6 +127,7 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16))); // 16/24/
 | `pitchSemitones` | number | 0 | 变调半音，-24~+24。**只改音高、不改时长**（相位声码器）。 |
 | `order` | string | `'pitch-first'` | 处理顺序：`pitch-first` 先变调后寒冰；`ice-first` 先寒冰后变调。两者听感略有差异。 |
 | `engine` | string | `'js'` | `'js'`（默认·最稳·跨浏览器）/ `'webaudio'`（浏览器原生·实验性）/ `'auto'`（=纯 JS）。 |
+| `preserveDuration` | boolean | `true` | 仅 `transformScript` 用：**变调是否保持原速**。`true`=只改音高不改速度；`false`=音高+速度同时变。 |
 | `normalize` | boolean | `true` | 输出峰值归一化到 -1 dB。 |
 | `onProgress` | function | — | 进度回调，便于做进度条。 |
 

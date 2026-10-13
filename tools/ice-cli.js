@@ -13,12 +13,15 @@
  *   -l, --layers <N>      寒冰层数，1~99，默认 3
  *   -p, --pitch <半音>    变调半音 -24~24，默认 0（不变调、不变速）
  *       --order <顺序>    pitch-first | ice-first，默认 pitch-first
+ *       --script <指令>   序列式指令（任意顺序无限叠加），例：机械，机械，变调(-5)，机械，变调(-7
+ *                         ；指定后覆盖 -l/-p/--order。变调默认保持原速。
  *       --depth <位>      输出位深 16 | 24 | 32，默认 16
  *   -h, --help            显示帮助
  *
  * 示例：
  *   node tools/ice-cli.js voice.wav -l 4 -p 5 -o voice_ice.wav
  *   node tools/ice-cli.js voice.wav --layers 8 --pitch -3 --depth 24
+ *   node tools/ice-cli.js voice.wav --script "机械，机械，变调(-12)，机械"
  */
 const fs = require('fs');
 const path = require('path');
@@ -29,7 +32,7 @@ function showHelp() {
 }
 
 function parseArgs(argv) {
-    const a = { layers: 3, pitch: 0, order: 'pitch-first', depth: 16, out: null };
+    const a = { layers: 3, pitch: 0, order: 'pitch-first', depth: 16, out: null, script: null };
     let i = 0;
     let input = null;
     while (i < argv.length) {
@@ -39,6 +42,7 @@ function parseArgs(argv) {
         else if (t === '-l' || t === '--layers') a.layers = parseInt(argv[++i], 10);
         else if (t === '-p' || t === '--pitch') a.pitch = parseInt(argv[++i], 10);
         else if (t === '--order') a.order = argv[++i];
+        else if (t === '--script') a.script = argv[++i];
         else if (t === '--depth') a.depth = parseInt(argv[++i], 10);
         else if (!input) input = t;
         i++;
@@ -57,15 +61,23 @@ function main() {
         audio.channels.length + 'ch ' + (audio.length / audio.sampleRate).toFixed(2) + 's');
 
     const isFloat = a.depth === 32;
-    const out = IceVoice.transformChannels(audio, {
-        layers: a.layers, pitchSemitones: a.pitch, order: a.order, normalize: true
-    });
+    let out, desc;
+    if (a.script) {
+        const parsed = IceVoice.parseScript(a.script);
+        if (parsed.error) { console.error('指令错误：' + parsed.error); process.exit(1); }
+        out = IceVoice.transformScript(a.script, audio, { preserveDuration: true, normalize: true });
+        desc = '序列：' + a.script + '（不变速）';
+    } else {
+        out = IceVoice.transformChannels(audio, {
+            layers: a.layers, pitchSemitones: a.pitch, order: a.order, normalize: true
+        });
+        desc = '层数 ' + a.layers + '，变调 ' + (a.pitch > 0 ? '+' : '') + a.pitch + ' 半音，不变速';
+    }
     const wavBuf = IceVoice.encodeWav(out, a.depth, isFloat);
 
     const outPath = a.out || (path.basename(input, path.extname(input)) + '_ice.wav');
     fs.writeFileSync(outPath, Buffer.from(wavBuf));
-    console.log('输出：' + outPath + '  （层数 ' + a.layers + '，变调 ' +
-        (a.pitch > 0 ? '+' : '') + a.pitch + ' 半音，不变速）');
+    console.log('输出：' + outPath + '  （' + desc + '）');
 }
 
 try { main(); }
