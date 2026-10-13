@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>寒冰变声器 · Ice Voice Changer</title>
+<style>
+  :root{
+    --bg:#070b16; --bg2:#0d1424; --card:rgba(20,32,54,.72);
+    --line:rgba(120,200,255,.16); --ice:#7df9ff; --ice2:#5fd3ff; --ice3:#3aa6e0;
+    --txt:#dbeaff; --dim:#8fa6c8; --warn:#ffd166; --ok:#5fffa6; --bad:#ff7a90;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    color:var(--txt); background:
+      radial-gradient(1200px 700px at 12% -10%, rgba(95,211,255,.10), transparent 60%),
+      radial-gradient(1000px 600px at 110% 0%, rgba(125,249,255,.08), transparent 55%),
+      linear-gradient(160deg,var(--bg),var(--bg2));
+    min-height:100vh; padding:24px 16px 60px;
+  }
+  .wrap{max-width:960px;margin:0 auto}
+  header.hero{text-align:center;margin-bottom:22px}
+  .hero h1{
+    font-size:30px;margin:0;letter-spacing:.5px;
+    background:linear-gradient(90deg,var(--ice),#fff 55%,var(--ice2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 22px rgba(125,249,255,.25);
+  }
+  .hero p{color:var(--dim);margin:8px 0 0;font-size:13.5px}
+  .badge{
+    display:inline-block;margin-top:10px;font-size:12px;color:var(--ice2);
+    border:1px solid var(--line);border-radius:999px;padding:4px 12px;
+    background:rgba(95,211,255,.06);cursor:pointer;user-select:none;
+  }
+  .badge:hover{background:rgba(95,211,255,.14)}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:18px;margin-bottom:16px;backdrop-filter:blur(8px);
+    box-shadow:0 10px 40px rgba(0,0,0,.35);
+  }
+  .card h2{font-size:15px;margin:0 0 12px;color:var(--ice);font-weight:600;
+    display:flex;align-items:center;gap:8px}
+  .card h2 .n{width:22px;height:22px;border-radius:8px;background:rgba(125,249,255,.12);
+    display:grid;place-items:center;font-size:12px;color:var(--ice)}
+  #drop{
+    border:1.5px dashed var(--line);border-radius:14px;padding:30px 18px;text-align:center;
+    color:var(--dim);transition:.18s;cursor:pointer;background:rgba(125,249,255,.03);
+  }
+  #drop.over{border-color:var(--ice);color:var(--ice);background:rgba(125,249,255,.10)}
+  #drop b{color:var(--ice2)}
+  .row{display:flex;flex-wrap:wrap;gap:14px}
+  .field{flex:1 1 220px}
+  .field label{display:block;font-size:12.5px;color:var(--dim);margin-bottom:7px}
+  .field .val{color:var(--ice);font-weight:600}
+  input[type=range]{width:100%;accent-color:var(--ice2)}
+  select,input[type=number]{
+    width:100%;background:#0a1120;color:var(--txt);border:1px solid var(--line);
+    border-radius:9px;padding:9px 10px;font-size:13px;outline:none;
+  }
+  select:focus,input:focus{border-color:var(--ice2)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{background:transparent;color:var(--dim);border:0;padding:8px 14px;font-size:13px;cursor:pointer}
+  .seg button.on{background:rgba(125,249,255,.16);color:var(--ice)}
+  .btn{
+    background:linear-gradient(90deg,var(--ice3),var(--ice2));color:#04121c;border:0;
+    border-radius:11px;padding:12px 20px;font-size:14px;font-weight:700;cursor:pointer;
+    box-shadow:0 6px 22px rgba(95,211,255,.28);transition:.16s;
+  }
+  .btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .btn.ghost{background:transparent;color:var(--ice2);border:1px solid var(--line);box-shadow:none;font-weight:600}
+  .btn:disabled{opacity:.45;cursor:not-allowed;filter:none;transform:none}
+  .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:4px}
+  .players{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:640px){.players{grid-template-columns:1fr}}
+  .player{background:#0a1120;border:1px solid var(--line);border-radius:12px;padding:14px}
+  .player .t{font-size:13px;color:var(--ice2);margin-bottom:8px;display:flex;justify-content:space-between}
+  .player audio{width:100%}
+  .meta{font-size:12px;color:var(--dim);margin-top:6px}
+  .prog{height:8px;background:#0a1120;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:12px}
+  .prog>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ice3),var(--ice));transition:width .12s}
+  .note{font-size:12px;color:var(--dim);line-height:1.6}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  .status{font-size:12px;color:var(--dim);margin-top:8px;word-break:break-all}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt);margin-top:10px;cursor:pointer}
+  .chk input{accent-color:var(--ice2);width:16px;height:16px}
+  details{margin-top:6px} summary{cursor:pointer;color:var(--ice2);font-size:12.5px}
+  pre{background:#060b15;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;font-size:11.5px;color:#bfe0ff}
+  a{color:var(--ice2)}
+  .pill{display:inline-block;font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;margin-left:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>❄ 寒冰变声器</h1>
+    <p>把任意音频叠上 N 层 Scratch / TurboWarp「机械」音效，并可不变速升/降调 —— 寒冰动画同款搞笑特效</p>
+    <span class="badge" id="verifyBtn">🔍 校验上游算法 (Scratch robot-effect.js)</span>
+    <span class="pill" id="verInfo">核心库 v1.0.0</span>
+  </header>
+
+  <!-- 1. 导入 -->
+  <div class="card">
+    <h2><span class="n">1</span> 导入音频</h2>
+    <div id="drop">
+      <b>拖入音频文件</b> 或 点击选择（支持 WAV / MP3 / OGG / M4A）<br>
+      <span style="font-size:12px">导入后仅在本机处理，不会上传任何服务器</span>
+    </div>
+    <input id="file" type="file" accept="audio/*,.wav,.mp3,.ogg,.m4a" hidden />
+    <div class="status" id="fileStatus">尚未导入音频</div>
+  </div>
+
+  <!-- 2. 参数 -->
+  <div class="card">
+    <h2><span class="n">2</span> 寒冰特效参数</h2>
+    <div class="row">
+      <div class="field">
+        <label>寒冰层数 N（机械音效叠加遍数）：<span class="val" id="layersVal">3</span></label>
+        <input id="layers" type="range" min="1" max="20" step="1" value="3" />
+        <div class="note">层数越高，机械/冰冷感越强。1 层已明显，3~6 层是日常搞笑档，10+ 层非常夸张。</div>
+      </div>
+      <div class="field">
+        <label>变调（半音，<b>不变速</b>）：<span class="val" id="pitchVal">0</span></label>
+        <input id="pitch" type="range" min="-12" max="12" step="1" value="0" />
+        <div class="note" id="pitchHint">0 = 原调。正数升调、负数降调，时长不变（相位声码器）。</div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div class="field">
+        <label>处理顺序</label>
+        <div class="seg" id="orderSeg">
+          <button data-v="pitch-first" class="on">先变调 → 再寒冰</button>
+          <button data-v="ice-first">先寒冰 → 再变调</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>引擎（一般自动即可）</label>
+        <select id="engine">
+          <option value="auto">自动（优先 WebAudio，与 Scratch 一致）</option>
+          <option value="webaudio">WebAudio（离线渲染，最还原）</option>
+          <option value="js">纯 JS（无 WebAudio 时兜底）</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 处理 -->
+  <div class="card">
+    <h2><span class="n">3</span> 处理与预览</h2>
+    <div class="actions">
+      <button class="btn" id="processBtn" disabled>❄ 处理并预览</button>
+      <button class="btn ghost" id="downloadBtn" disabled>⬇ 下载寒冰版 WAV</button>
+      <button class="btn ghost" id="downloadOrigBtn" disabled>⬇ 下载原声 WAV</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="autoDl" checked /> 处理完成后自动下载寒冰版</label>
+    <div class="prog"><i id="progBar"></i></div>
+    <div class="status" id="procStatus">等待导入音频…</div>
+
+    <div class="players" style="margin-top:14px">
+      <div class="player">
+        <div class="t"><span>🔊 原声（变声前）</span><span id="origDur" class="meta"></span></div>
+        <audio id="origAudio" controls></audio>
+        <div class="meta" id="origMeta"></div>
+      </div>
+      <div class="player">
+        <div class="t"><span>❄ 寒冰版（变声后）</span><span id="iceDur" class="meta"></span></div>
+        <audio id="iceAudio" controls></audio>
+        <div class="meta" id="iceMeta"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. E 盘缓存/备份 -->
+  <div class="card">
+    <h2><span class="n">4</span> E 盘工作区缓存与备份</h2>
+    <div class="note">
+      推荐工作区：<b>E:\wuzhenfapack\下载\Scratch寒冰html动画编辑器\寒冰变声器AI工作区</b><br>
+      连接后，每次处理的结果会自动保存到此目录下的 <b>工具默认保存输出音频路径/</b>，并额外备份一份到 <b>backups/</b>。
+      需要 Chromium 内核浏览器（Edge / Chrome）；若不可用则降级为普通下载，不写 C 盘。
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn ghost" id="connectBtn">🔗 连接 E 盘工作区</button>
+      <button class="btn ghost" id="backupNowBtn" disabled>💾 立即备份当前结果</button>
+    </div>
+    <div class="status" id="fsStatus">未连接（将使用浏览器下载）</div>
+  </div>
+
+  <!-- 5. 给开发者的 API -->
+  <div class="card">
+    <h2><span class="n">5</span> 给开发者 / AI 的接入方式</h2>
+    <div class="note">
+      本工具的核心算法全部封装在 <b>js/ice-voice-core.js</b>（UMD，浏览器与 Node 通用）。
+      把它当成「AI 变声插件之后的特效插件」即可：拿到任意 AudioBuffer / WAV 数据 → 调 <code>IceVoice.transformBuffer / transformChannels</code> → 得到寒冰版。
+    </div>
+    <details>
+      <summary>浏览器中调用（点击展开）</summary>
+      <pre>// 1) 引入核心库 &lt;script src="js/ice-voice-core.js"&gt;&lt;/script&gt;
+const out = await IceVoice.transformBuffer(audioBuffer, {
+  layers: 3,            // 寒冰层数 N
+  pitchSemitones: 5,    // 升 5 半音，不变速；0 = 不变调
+  order: 'pitch-first', // 'pitch-first' | 'ice-first'
+  engine: 'auto'        // 'webaudio'(浏览器) | 'js' | 'auto'
+});
+// out 是 AudioBuffer，可直接播放或 encodeWav 导出</pre>
+    </details>
+    <details>
+      <summary>Node.js 中调用（点击展开）</summary>
+      <pre>const IceVoice = require('./js/ice-voice-core.js');
+const fs = require('fs');
+const wav = fs.readFileSync('in.wav');
+const audio = IceVoice.decodeWav(wav.buffer.slice(wav.byteOffset, wav.byteOffset + wav.byteLength));
+const res = IceVoice.transformChannels(audio, { layers: 4, pitchSemitones: -3 });
+fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
+    </details>
+    <div class="note" style="margin-top:8px">
+      完整说明见仓库 <b>docs/API接入说明书.md</b>；开源发布教程见 <b>docs/GITHUB上传教程.md</b>。
+    </div>
+  </div>
+
+  <div class="status" style="text-align:center;color:var(--dim)">
+    MIT License · 算法移植自 scratchfoundation/scratch-gui（Scratch 与 TurboWarp 共用）· 本地优先、零上传
+  </div>
+</div>
+
+<script>
+/* ===== ice-voice-core.js (inlined for standalone) ===== */
+/*!
+ * ice-voice-core.js — 寒冰变声核心库 v1.0.0
+ * ============================================================
+ * 「寒冰声音」= Scratch / TurboWarp 声音编辑器里的「机械」音效，
+ * 反复叠加 N 层后得到的机械化搞笑音频特效。
+ *
+ * 算法权威出处（本库即按其 1:1 移植）：
+ *   scratchfoundation/scratch-gui · src/lib/audio/effects/robot-effect.js
+ *   https://github.com/scratchfoundation/scratch-gui/blob/develop/src/lib/audio/effects/robot-effect.js
+ *   sha256: c9d914e5942699c355364cfc113474775aa34c1507ea9638d015c48fa08b3c68
+ *   （TurboWarp 桌面版/编辑器沿用同一份 scratch-gui 音频特效代码，
+ *     TurboWarp 仓库: https://github.com/TurboWarp/desktop ）
+ *
+ * 该效果是一个 BBC Dalek 风格的环形调制器（Dalek voice）：
+ *   50Hz 正弦载波 Vc 与输入 Vin 一起送入 4 个「二极管」WaveShaper
+ *   非线性节点（Parker, DAFx11 论文给出的分段函数），
+ *   与 1kHz 高通支路相加后经过动态压缩器
+ *   （threshold -5dB / knee 15dB / ratio 12:1 / attack 0 / release 0.25s）。
+ *   叠加 N 层 = 把整张图完整跑 N 遍，机械感指数级加深。
+ *
+ * 两种引擎：
+ *   - 'webaudio'：浏览器内用 OfflineAudioContext 复刻上游节点图，
+ *     与 Scratch/TurboWarp 实际听到的效果完全一致（默认，仅浏览器可用）。
+ *   - 'js'：纯 JavaScript 逐样本实现，Node.js 与无 WebAudio 环境可用；
+ *     压缩器按 Web Audio 规范语义实现，与浏览器内置存在极小样本级差异。
+ *
+ * 变调：相位声码器（phase vocoder）时间拉伸 + 重采样，
+ *       只改音高、不改速度（与 Scratch 的「更快/更慢」不同，那两个会同时变速）。
+ *
+ * UMD：浏览器挂 window.IceVoice；Node 用 require('ice-voice-core')。
+ * MIT License.
+ */
+(function (root, factory) {
+    if (typeof module === 'object' && module.exports) {
+        module.exports = factory();
+    } else {
+        root.IceVoice = factory();
+    }
+})(typeof self !== 'undefined' ? self : this, function () {
+    'use strict';
+
+    var VERSION = '1.0.0';
+
+    /* ---------------------------------------------------------
+     * 一、算法常量（与上游 robot-effect.js 逐值对应）
+     * --------------------------------------------------------- */
+
+    var ROBOT = {
+        carrierFreq: 50,          // oscillator.frequency.value
+        diode: {                  // Parker 论文分段函数参数
+            vb: 0.2,
+            vl: 0.4,
+            h: 0.65,
+            curveLength: 1024     // WaveShaper curve 长度
+        },
+        highpass: { freq: 1000, q: 1 },   // biquadFilter (gain 1.25 对 highpass 无效，上游原样保留)
+        compressor: {
+            threshold: -5,        // dB
+            knee: 15,             // dB
+            ratio: 12,
+            attack: 0,            // s
+            release: 0.25         // s
+        }
+    };
+
+    var SOURCE = {
+        repo: 'https://github.com/scratchfoundation/scratch-gui',
+        robotEffectFile: 'https://github.com/scratchfoundation/scratch-gui/blob/develop/src/lib/audio/effects/robot-effect.js',
+        robotEffectRaw: 'https://raw.githubusercontent.com/scratchfoundation/scratch-gui/develop/src/lib/audio/effects/robot-effect.js',
+        audioEffectsFile: 'https://github.com/scratchfoundation/scratch-gui/blob/develop/src/lib/audio/audio-effects.js',
+        audioEffectsRaw: 'https://raw.githubusercontent.com/scratchfoundation/scratch-gui/develop/src/lib/audio/audio-effects.js',
+        turbowarp: 'https://github.com/TurboWarp/desktop',
+        robotEffectSha256: 'c9d914e5942699c355364cfc113474775aa34c1507ea9638d015c48fa08b3c68',
+        retrievedAt: '2026-10-13'
+    };
+
+    /* ---------------------------------------------------------
+     * 二、WAV 编解码（纯 JS，无依赖）
+     * --------------------------------------------------------- */
+
+    function decodeWav(arrayBuffer) {
+        if (!arrayBuffer || arrayBuffer.byteLength < 44) {
+            throw new Error('WAV 数据太短或为空');
+        }
+        var view = new DataView(arrayBuffer);
+        var riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+        var wave = String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11));
+        if (riff !== 'RIFF' || wave !== 'WAVE') {
+            throw new Error('不是有效的 WAV 文件（缺少 RIFF/WAVE 头）');
+        }
+        var pos = 12;
+        var fmt = null;
+        var dataOffset = -1;
+        var dataSize = 0;
+        while (pos + 8 <= view.byteLength) {
+            var id = String.fromCharCode(view.getUint8(pos), view.getUint8(pos + 1), view.getUint8(pos + 2), view.getUint8(pos + 3));
+            var size = view.getUint32(pos + 4, true);
+            var body = pos + 8;
+            if (id === 'fmt ') {
+                fmt = {
+                    audioFormat: view.getUint16(body, true),
+                    numChannels: view.getUint16(body + 2, true),
+                    sampleRate: view.getUint32(body + 4, true),
+                    bitsPerSample: view.getUint16(body + 14, true)
+                };
+                if (fmt.audioFormat === 0xFFFE && size >= 40) {
+                    // EXTENSIBLE：真正格式在 SubFormat GUID 前 2 字节
+                    fmt.audioFormat = view.getUint16(body + 24, true);
+                }
+            } else if (id === 'data') {
+                dataOffset = body;
+                dataSize = Math.min(size, view.byteLength - body);
+            }
+            pos = body + size + (size % 2); // 块按 2 字节对齐
+        }
+        if (!fmt) throw new Error('WAV 缺少 fmt 块');
+        if (dataOffset < 0) throw new Error('WAV 缺少 data 块');
+
+        var channels = [];
+        var ch;
+        for (ch = 0; ch < fmt.numChannels; ch++) channels.push(new Float32Array(0));
+        var frames = Math.floor(dataSize / (fmt.numChannels * (fmt.bitsPerSample / 8)));
+        for (ch = 0; ch < fmt.numChannels; ch++) channels[ch] = new Float32Array(frames);
+
+        var i, c, v;
+        if (fmt.audioFormat === 1 && fmt.bitsPerSample === 16) {
+            for (i = 0; i < frames; i++) {
+                for (c = 0; c < fmt.numChannels; c++) {
+                    v = view.getInt16(dataOffset + (i * fmt.numChannels + c) * 2, true);
+                    channels[c][i] = v / 32768;
+                }
+            }
+        } else if (fmt.audioFormat === 1 && fmt.bitsPerSample === 24) {
+            for (i = 0; i < frames; i++) {
+                for (c = 0; c < fmt.numChannels; c++) {
+                    var o = dataOffset + (i * fmt.numChannels + c) * 3;
+                    v = (view.getUint8(o) | (view.getUint8(o + 1) << 8) | (view.getInt8(o + 2) << 16));
+                    channels[c][i] = v / 8388608;
+                }
+            }
+        } else if (fmt.audioFormat === 1 && fmt.bitsPerSample === 32) {
+            for (i = 0; i < frames; i++) {
+                for (c = 0; c < fmt.numChannels; c++) {
+                    v = view.getInt32(dataOffset + (i * fmt.numChannels + c) * 4, true);
+                    channels[c][i] = v / 2147483648;
+                }
+            }
+        } else if (fmt.audioFormat === 3 && fmt.bitsPerSample === 32) {
+            for (i = 0; i < frames; i++) {
+                for (c = 0; c < fmt.numChannels; c++) {
+                    channels[c][i] = view.getFloat32(dataOffset + (i * fmt.numChannels + c) * 4, true);
+                }
+            }
+        } else if (fmt.audioFormat === 3 && fmt.bitsPerSample === 64) {
+            for (i = 0; i < frames; i++) {
+                for (c = 0; c < fmt.numChannels; c++) {
+                    channels[c][i] = view.getFloat64(dataOffset + (i * fmt.numChannels + c) * 8, true);
+                }
+            }
+        } else {
+            throw new Error('不支持的 WAV 格式: audioFormat=' + fmt.audioFormat + ', bits=' + fmt.bitsPerSample +
+                '（支持 PCM 16/24/32bit 与 IEEE float 32/64bit）');
+        }
+        return {
+            sampleRate: fmt.sampleRate,
+            channels: channels,
+            length: frames,
+            bitDepth: fmt.bitsPerSample
+        };
+    }
+
+    function encodeWav(audio, bitDepth, floatFlag) {
+        if (bitDepth === '32f') { bitDepth = 32; floatFlag = true; }
+        bitDepth = bitDepth || 16;
+        var channels = audio.channels;
+        var numChannels = channels.length;
+        var frames = (audio.length != null) ? audio.length
+            : (channels[0] ? channels[0].length : 0);
+        var sampleRate = audio.sampleRate;
+        if (numChannels === 0 || frames === 0) throw new Error('没有可编码的音频数据');
+
+        var bytesPerSample = bitDepth / 8;
+        var isFloat = !!floatFlag;
+        var blockAlign = numChannels * bytesPerSample;
+        var dataSize = frames * blockAlign;
+        var buffer = new ArrayBuffer(44 + dataSize);
+        var view = new DataView(buffer);
+
+        function writeStr(off, s) {
+            for (var i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+        }
+        writeStr(0, 'RIFF');
+        view.setUint32(4, 36 + dataSize, true);
+        writeStr(8, 'WAVE');
+        writeStr(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, isFloat ? 3 : 1, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * blockAlign, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitDepth, true);
+        writeStr(36, 'data');
+        view.setUint32(40, dataSize, true);
+
+        var i, c, s;
+        if (isFloat) {
+            for (i = 0; i < frames; i++) {
+                for (c = 0; c < numChannels; c++) {
+                    view.setFloat32(44 + (i * numChannels + c) * 4, clamp(channels[c][i], -1, 1), true);
+                }
+            }
+        } else if (bitDepth === 16) {
+            for (i = 0; i < frames; i++) {
+                for (c = 0; c < numChannels; c++) {
+                    s = clamp(channels[c][i], -1, 1);
+                    view.setInt16(44 + (i * numChannels + c) * 2, s < 0 ? s * 32768 : s * 32767, true);
+                }
+            }
+        } else if (bitDepth === 24) {
+            for (i = 0; i < frames; i++) {
+                for (c = 0; c < numChannels; c++) {
+                    s = clamp(channels[c][i], -1, 1);
+                    v = s < 0 ? s * 8388608 : s * 8388607;
+                    var iv = Math.max(-8388608, Math.min(8388607, Math.round(v)));
+                    var off = 44 + (i * numChannels + c) * 3;
+                    view.setUint8(off, iv & 0xFF);
+                    view.setUint8(off + 1, (iv >> 8) & 0xFF);
+                    view.setUint8(off + 2, (iv >> 16) & 0xFF);
+                }
+            }
+        } else {
+            throw new Error('encodeWav 仅支持 16 / 24 / 32(float) 位');
+        }
+        return buffer;
+    }
+
+    /* ---------------------------------------------------------
+     * 三、纯 JS 引擎：Dalek 环形调制（robot-effect.js 移植）
+     * --------------------------------------------------------- */
+
+    function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+    // 上游 Parker 论文分段函数：二极管电压传输曲线
+    function diodeTransform(v, vb, vl, h) {
+        if (v <= vb) return 0;
+        if (v <= vl) return h * (Math.pow(v - vb, 2) / ((2 * vl) - (2 * vb)));
+        return (h * v) - (h * vl) + (h * (Math.pow(v - vb, 2) / ((2 * vl) - (2 * vb))));
+    }
+
+    // 与 WebAudio WaveShaperNode 行为一致：[-1,1] 之外钳位，中间线性插值
+    function buildDiodeCurve() {
+        var n = ROBOT.diode.curveLength;
+        var curve = new Float32Array(n);
+        for (var i = 0; i < n; i++) {
+            var voltage = (2 * (i / n)) - 1;
+            curve[i] = diodeTransform(voltage, ROBOT.diode.vb, ROBOT.diode.vl, ROBOT.diode.h);
+        }
+        return curve;
+    }
+
+    function makeWaveShaper(curve) {
+        var n = curve.length;
+        return function (x) {
+            if (x >= 1) return curve[n - 1];
+            if (x <= -1) return curve[0];
+            var pos = (x + 1) * 0.5 * (n - 1);
+            var i0 = Math.floor(pos);
+            var frac = pos - i0;
+            if (i0 >= n - 1) return curve[n - 1];
+            return curve[i0] * (1 - frac) + curve[i0 + 1] * frac;
+        };
+    }
+
+    // 载波整流支路 S(t) = -(D(+0.5·Vc) + D(-0.5·Vc))，只跟时间有关，与输入无关，
+    // 整条处理链（任意层数）只需算一次。返回一个载波周期的表。
+    function buildCarrierTable(sampleRate, freq) {
+        var curve = buildDiodeCurve();
+        var shape = makeWaveShaper(curve);
+        var period = Math.max(2, Math.round(sampleRate / freq));
+        var table = new Float32Array(period);
+        for (var i = 0; i < period; i++) {
+            var vc = Math.sin(2 * Math.PI * freq * i / sampleRate);
+            table[i] = -(shape(0.5 * vc) + shape(-0.5 * vc));
+        }
+        return table;
+    }
+
+    // RBJ  cookbook 二阶高通（与 WebAudio BiquadFilterNode highpass 一致的系数）
+    function highpassCoeffs(sampleRate, f0, q) {
+        var w0 = 2 * Math.PI * f0 / sampleRate;
+        var cos = Math.cos(w0);
+        var alpha = Math.sin(w0) / (2 * q);
+        var b0 = (1 + cos) / 2, b1 = -(1 + cos), b2 = (1 + cos) / 2;
+        var a0 = 1 + alpha, a1 = -2 * cos, a2 = 1 - alpha;
+        return { b0: b0 / a0, b1: b1 / a0, b2: b2 / a0, a1: a1 / a0, a2: a2 / a0 };
+    }
+
+    // 按 Web Audio 规范语义实现的动态压缩器（峰值包络 + attack/release 单极点 + 软膝曲线）
+    function makeCompressor(sampleRate) {
+        var c = ROBOT.compressor;
+        var attackCoef = c.attack <= 0 ? 1 : 1 - Math.exp(-1 / (c.attack * sampleRate));
+        var releaseCoef = c.release <= 0 ? 1 : 1 - Math.exp(-1 / (c.release * sampleRate));
+        var k = c.knee / 2;
+        var env = 0;
+        return function (x) {
+            var ax = x < 0 ? -x : x;
+            var coef = ax > env ? attackCoef : releaseCoef;
+            env += (ax - env) * coef;
+            if (env < 1e-8) return x;
+            var envDb = 20 * Math.log10(env);
+            var over = envDb - c.threshold;
+            var outDb;
+            if (over <= -k) {
+                outDb = envDb;
+            } else if (over >= k) {
+                outDb = c.threshold + over / c.ratio;
+            } else {
+                outDb = envDb + (1 / c.ratio - 1) * (over + k) * (over + k) / (4 * k);
+            }
+            var gain = Math.pow(10, (outDb - envDb) / 20);
+            return x * gain;
+        };
+    }
+
+    /**
+     * 纯 JS 单层「机械/寒冰」音效。
+     * @param {Float32Array} x 输入（单声道，-1..1）
+     * @param {number} sampleRate
+     * @param {object} [opts] {freq=50, curve, carrier, hp, comp}
+     * @returns {Float32Array} 新缓冲（不修改入参）
+     */
+    function applyRobotLayer(x, sampleRate, opts) {
+        opts = opts || {};
+        var freq = opts.freq || ROBOT.carrierFreq;
+        var shape = opts.shape || makeWaveShaper(opts.curve || buildDiodeCurve());
+        var carrier = opts.carrier || buildCarrierTable(sampleRate, freq);
+        var hp = opts.hp || highpassCoeffs(sampleRate, ROBOT.highpass.freq, ROBOT.highpass.q);
+        var comp = opts.comp || makeCompressor(sampleRate);
+        var period = carrier.length;
+        var w = 2 * Math.PI * freq / sampleRate;
+        var len = x.length;
+        var y = new Float32Array(len);
+        // biquad 直 II 型状态（跨整轨连续，与 WebAudio 一致）
+        var x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+        for (var n = 0; n < len; n++) {
+            var vin = x[n];
+            var vc = Math.sin(w * n);
+            var halfVc = 0.5 * vc;
+            var s = carrier[n % period];
+            var u = shape(vin + halfVc) + shape(-(vin + halfVc)) + s;
+            // highpass(vin)
+            var hpOut = hp.b0 * vin + hp.b1 * x1 + hp.b2 * x2 - hp.a1 * y1 - hp.a2 * y2;
+            x2 = x1; x1 = vin; y2 = y1; y1 = hpOut;
+            y[n] = comp(u + hpOut);
+        }
+        return y;
+    }
+
+    /* ---------------------------------------------------------
+     * 四、WebAudio 引擎：按上游节点图 1:1 复刻（仅浏览器）
+     * --------------------------------------------------------- */
+
+    function hasWebAudio() {
+        return typeof window !== 'undefined' &&
+            (window.OfflineAudioContext || window.webkitOfflineAudioContext);
+    }
+
+    /**
+     * 在给定的 OfflineAudioContext 上搭建 RobotEffect 节点图（与上游连接方式逐条对应）。
+     * 整轨生效模式：passthrough 增益为 0（上游仅在裁剪区外才走干路）。
+     */
+    function buildRobotGraph(ctx, freq) {
+        var input = ctx.createGain();
+        var output = ctx.createGain();
+        var passthrough = ctx.createGain();   // 上游干路；整段处理时置 0
+        var effectInput = ctx.createGain();
+        effectInput.gain.value = 1;           // 整段生效：effectInput 常开、passthrough 常关
+        passthrough.gain.value = 0;
+
+        function createDiodeNode() {
+            var node = ctx.createWaveShaper();
+            var n = ROBOT.diode.curveLength;
+            var curve = new Float32Array(n);
+            for (var i = 0; i < n; i++) {
+                var voltage = (2 * (i / n)) - 1;
+                curve[i] = diodeTransform(voltage, ROBOT.diode.vb, ROBOT.diode.vl, ROBOT.diode.h);
+            }
+            node.curve = curve;
+            return node;
+        }
+
+        var oscillator = ctx.createOscillator();
+        oscillator.frequency.value = freq || ROBOT.carrierFreq;
+        oscillator.start(0);
+
+        var vInGain = ctx.createGain(); vInGain.gain.value = 0.5;
+        var vInInverter1 = ctx.createGain(); vInInverter1.gain.value = -1;
+        var vInInverter2 = ctx.createGain(); vInInverter2.gain.value = -1;
+        var vInDiode1 = createDiodeNode();
+        var vInDiode2 = createDiodeNode();
+        var vInInverter3 = ctx.createGain(); vInInverter3.gain.value = -1;
+        var vcInverter1 = ctx.createGain(); vcInverter1.gain.value = -1;
+        var vcDiode3 = createDiodeNode();
+        var vcDiode4 = createDiodeNode();
+
+        var compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.value = ROBOT.compressor.threshold;
+        compressor.knee.value = ROBOT.compressor.knee;
+        compressor.ratio.value = ROBOT.compressor.ratio;
+        compressor.attack.value = ROBOT.compressor.attack;
+        compressor.release.value = ROBOT.compressor.release;
+
+        var biquadFilter = ctx.createBiquadFilter();
+        biquadFilter.type = 'highpass';
+        biquadFilter.frequency.value = ROBOT.highpass.freq;
+        biquadFilter.gain.value = 1.25; // 上游原值（对 highpass 无实际作用）
+
+        input.connect(effectInput);
+        input.connect(passthrough);
+        passthrough.connect(output);
+
+        effectInput.connect(vcInverter1);
+        effectInput.connect(vcDiode4);
+
+        oscillator.connect(vInGain);
+        vInGain.connect(vInInverter1);
+        vInGain.connect(vcInverter1);
+        vInGain.connect(vcDiode4);
+
+        vInInverter1.connect(vInInverter2);
+        vInInverter1.connect(vInDiode2);
+        vInInverter2.connect(vInDiode1);
+
+        vInDiode1.connect(vInInverter3);
+        vInDiode2.connect(vInInverter3);
+
+        vInInverter3.connect(compressor);
+        vcDiode3.connect(compressor);
+        vcDiode4.connect(compressor);
+
+        effectInput.connect(biquadFilter);
+        biquadFilter.connect(compressor);
+
+        compressor.connect(output);
+
+        return { input: input, output: output };
+    }
+
+    /**
+     * WebAudio 单层渲染：输入 AudioBuffer（按声道逐个处理，与上游单声道行为一致）。
+     */
+    function applyRobotLayerWebAudio(channelData, sampleRate, freq) {
+        var OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        var len = channelData.length;
+        var ctx = new OfflineCtx(1, Math.max(2, len), sampleRate);
+        var srcBuf = ctx.createBuffer(1, len, sampleRate);
+        srcBuf.copyToChannel(channelData, 0);
+        var src = ctx.createBufferSource();
+        src.buffer = srcBuf;
+        var graph = buildRobotGraph(ctx, freq);
+        src.connect(graph.input);
+        graph.output.connect(ctx.destination);
+        src.start(0);
+        return ctx.startRendering();
+    }
+
+    /* ---------------------------------------------------------
+     * 五、相位声码器变调（只改音高，不改速度）
+     * --------------------------------------------------------- */
+
+    function princarg(p) {
+        return p - 2 * Math.PI * Math.round(p / (2 * Math.PI));
+    }
+
+    // 迭代基-2 FFT（原地）
+    function fft(re, im) {
+        var n = re.length;
+        var i, j, k;
+        for (i = 1, j = 0; i < n; i++) {
+            var bit = n >> 1;
+            for (; j & bit; bit >>= 1) j ^= bit;
+            j ^= bit;
+            if (i < j) {
+                var tr = re[i]; re[i] = re[j]; re[j] = tr;
+                var ti = im[i]; im[i] = im[j]; im[j] = ti;
+            }
+        }
+        for (var len = 2; len <= n; len <<= 1) {
+            var ang = -2 * Math.PI / len;
+            var wr = Math.cos(ang), wi = Math.sin(ang);
+            for (i = 0; i < n; i += len) {
+                var cr = 1, ci = 0;
+                for (k = 0; k < len / 2; k++) {
+                    var ur = re[i + k], ui = im[i + k];
+                    var vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci;
+                    var vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+                    re[i + k] = ur + vr; im[i + k] = ui + vi;
+                    re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi;
+                    var ncr = cr * wr - ci * wi;
+                    ci = cr * wi + ci * wr;
+                    cr = ncr;
+                }
+            }
+        }
+    }
+
+    function ifft(re, im) {
+        var n = re.length;
+        for (var i = 0; i < n; i++) im[i] = -im[i];
+        fft(re, im);
+        for (i = 0; i < n; i++) {
+            re[i] /= n;
+            im[i] = -im[i] / n;
+        }
+    }
+
+    /**
+     * 单声道相位声码器变调。
+     * @param {Float32Array} x
+     * @param {number} sampleRate
+     * @param {number} semitones -24..+24
+     * @param {object} [opts] {fftSize=2048, onProgress}
+     */
+    function pitchShiftMono(x, sampleRate, semitones, opts) {
+        opts = opts || {};
+        if (!semitones || Math.abs(semitones) < 1e-9) return x.slice();
+        var N = opts.fftSize || 2048;
+        if (N < 256) N = 256;
+        var H = N / 4;
+        var ratio = Math.pow(2, semitones / 12);
+        var len = x.length;
+        var stretchedLen = Math.max(Math.ceil(len * ratio), N + H);
+        var Hs = H * ratio;
+        var bins = N / 2 + 1;
+
+        var w = new Float32Array(N);
+        for (var i = 0; i < N; i++) w[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+
+        var nAna = Math.max(1, Math.floor((len - N) / H) + 1);
+        var nSyn = Math.max(1, Math.floor((stretchedLen - N) / Hs) + 1);
+        var expectedAna = 2 * Math.PI * H / N;   // 每 bin 每分析帧的预期相位推进 ×k
+        var expectedSyn = 2 * Math.PI * Hs / N;  // 每 bin 每合成帧的预期相位推进 ×k
+
+        var out = new Float32Array(stretchedLen);
+        var winSum = new Float32Array(stretchedLen);
+        var re = new Float32Array(N);
+        var im = new Float32Array(N);
+        var sumPhase = new Float32Array(bins);
+        var frameCache = new Map();
+
+        function getFrame(idx) {
+            var f = frameCache.get(idx);
+            if (f) return f;
+            if (idx < 0 || idx >= nAna) {
+                f = { mag: new Float32Array(bins), ph: new Float32Array(bins) };
+            } else {
+                re.fill(0); im.fill(0);
+                var off = idx * H;
+                for (var j = 0; j < N; j++) {
+                    var s = (off + j < len) ? x[off + j] : 0;
+                    re[j] = s * w[j];
+                }
+                fft(re, im);
+                var mag = new Float32Array(bins), ph = new Float32Array(bins);
+                for (var k = 0; k < bins; k++) {
+                    mag[k] = Math.sqrt(re[k] * re[k] + im[k] * im[k]);
+                    ph[k] = Math.atan2(im[k], re[k]);
+                }
+                f = { mag: mag, ph: ph };
+            }
+            frameCache.set(idx, f);
+            if (frameCache.size > 4) {
+                var minKey = Infinity;
+                frameCache.forEach(function (v, kk) { if (kk < minKey) minKey = kk; });
+                frameCache.delete(minKey);
+            }
+            return f;
+        }
+
+        for (var jj = 0; jj < nSyn; jj++) {
+            var t = jj * Hs / H;
+            var i0 = Math.floor(t);
+            var frac = t - i0;
+            var f0 = getFrame(i0);
+            var f1 = getFrame(i0 + 1);
+            var fm = i0 > 0 ? getFrame(i0 - 1) : null;
+            for (var kk = 0; kk < bins; kk++) {
+                var magI = f0.mag[kk] * (1 - frac) + f1.mag[kk] * frac;
+                var dPhase = 0;
+                if (fm) dPhase = princarg(f0.ph[kk] - fm.ph[kk] - expectedAna * kk);
+                if (jj === 0) sumPhase[kk] = f0.ph[kk];
+                else sumPhase[kk] += expectedSyn * kk + dPhase;
+                var sr = Math.cos(sumPhase[kk]) * magI;
+                var si = Math.sin(sumPhase[kk]) * magI;
+                re[kk] = sr; im[kk] = si;
+                if (kk > 0 && kk < N / 2) { re[N - kk] = sr; im[N - kk] = -si; }
+            }
+            ifft(re, im);
+            var off2 = Math.round(jj * Hs);
+            for (var n2 = 0; n2 < N; n2++) {
+                var idx2 = off2 + n2;
+                if (idx2 < stretchedLen) {
+                    var s2 = re[n2] * w[n2];
+                    out[idx2] += s2;
+                    winSum[idx2] += w[n2] * w[n2];
+                }
+            }
+            if (opts.onProgress && (jj & 63) === 0) {
+                opts.onProgress({ stage: 'pitch', done: jj, total: nSyn });
+            }
+        }
+        for (i = 0; i < stretchedLen; i++) {
+            if (winSum[i] > 1e-8) out[i] /= winSum[i];
+        }
+        // 重采样回原始长度（读快 ratio 倍 → 时长不变、音高 ×ratio）
+        var y = new Float32Array(len);
+        for (var m = 0; m < len; m++) {
+            var pos = m * ratio;
+            var i3 = Math.floor(pos);
+            var f3 = pos - i3;
+            var a = out[Math.min(i3, stretchedLen - 1)];
+            var b = out[Math.min(i3 + 1, stretchedLen - 1)];
+            y[m] = a + (b - a) * f3;
+        }
+        return y;
+    }
+
+    /* ---------------------------------------------------------
+     * 六、工具函数
+     * --------------------------------------------------------- */
+
+    function rms(data) {
+        var s = 0;
+        for (var i = 0; i < data.length; i++) s += data[i] * data[i];
+        return Math.sqrt(s / Math.max(1, data.length));
+    }
+
+    function peakOf(channels) {
+        var p = 0;
+        for (var c = 0; c < channels.length; c++) {
+            var d = channels[c];
+            for (var i = 0; i < d.length; i++) {
+                var a = d[i] < 0 ? -d[i] : d[i];
+                if (a > p) p = a;
+            }
+        }
+        return p;
+    }
+
+    function normalizePeak(channels, targetDb) {
+        targetDb = (targetDb === undefined) ? -1 : targetDb;
+        var p = peakOf(channels);
+        if (p <= 0 || p >= Math.pow(10, targetDb / 20)) return channels;
+        var g = Math.pow(10, targetDb / 20) / p;
+        for (var c = 0; c < channels.length; c++) {
+            var d = channels[c];
+            for (var i = 0; i < d.length; i++) d[i] *= g;
+        }
+        return channels;
+    }
+
+    // Goertzel：测指定频率的能量（自检/测试用）
+    function goertzel(data, sampleRate, freq) {
+        var n = data.length;
+        var w = 2 * Math.PI * freq / sampleRate;
+        var coeff = 2 * Math.cos(w);
+        var s1 = 0, s2 = 0;
+        for (var i = 0; i < n; i++) {
+            var s0 = data[i] + coeff * s1 - s2;
+            s2 = s1;
+            s1 = s0;
+        }
+        return Math.sqrt(Math.max(0, s1 * s1 + s2 * s2 - coeff * s1 * s2)) / n;
+    }
+
+    function dominantFrequency(data, sampleRate, minFreq, maxFreq) {
+        var best = minFreq, bestE = -1;
+        var step = Math.max(1, (maxFreq - minFreq) / 400);
+        for (var f = minFreq; f <= maxFreq; f += step) {
+            var e = goertzel(data, sampleRate, f);
+            if (e > bestE) { bestE = e; best = f; }
+        }
+        return best;
+    }
+
+    function audioBufferToChannels(buf) {
+        var channels = [];
+        for (var c = 0; c < buf.numberOfChannels; c++) channels.push(new Float32Array(buf.getChannelData(c)));
+        return channels;
+    }
+
+    function channelsToAudioBuffer(ctx, channels, sampleRate) {
+        var buf = ctx.createBuffer(channels.length, channels[0].length, sampleRate);
+        for (var c = 0; c < channels.length; c++) buf.copyToChannel(channels[c], c);
+        return buf;
+    }
+
+    /* ---------------------------------------------------------
+     * 七、主处理链
+     * --------------------------------------------------------- */
+
+    /**
+     * 纯 JS 处理链（Node / 无 WebAudio 环境）。
+     * @param {object} audio {channels: [Float32Array], sampleRate}
+     * @param {object} opts {layers=1, pitchSemitones=0, robotFreq=50,
+     *                       order='pitch-first'|'ice-first',
+     *                       monoOnly=false, normalize=true, fftSize=2048,
+     *                       onProgress}
+     * @returns {object} {channels, sampleRate}
+     */
+    function transformChannels(audio, opts) {
+        opts = opts || {};
+        var layers = Math.max(1, Math.min(99, opts.layers || 1));
+        var semitones = clamp(opts.pitchSemitones || 0, -24, 24);
+        var freq = opts.robotFreq || ROBOT.carrierFreq;
+        var order = opts.order || 'pitch-first';
+        var monoOnly = !!opts.monoOnly;
+        var sampleRate = audio.sampleRate;
+        var channels = audio.channels.map(function (d) { return new Float32Array(d); });
+        if (monoOnly && channels.length > 1) {
+            var mixed = new Float32Array(channels[0].length);
+            for (var c = 0; c < channels.length; c++) {
+                for (var i = 0; i < mixed.length; i++) mixed[i] += channels[c][i] / channels.length;
+            }
+            channels = [mixed];
+        }
+
+        function report(stage, layer, total) {
+            if (opts.onProgress) opts.onProgress({ stage: stage, layer: layer, total: total });
+        }
+
+        var shape = makeWaveShaper(buildDiodeCurve());
+        var carrier = buildCarrierTable(sampleRate, freq);
+        var hp = highpassCoeffs(sampleRate, ROBOT.highpass.freq, ROBOT.highpass.q);
+
+        function icePass() {
+            for (var L = 0; L < layers; L++) {
+                report('ice', L + 1, layers);
+                for (var ch = 0; ch < channels.length; ch++) {
+                    channels[ch] = applyRobotLayer(channels[ch], sampleRate, {
+                        freq: freq, shape: shape, carrier: carrier, hp: hp,
+                        comp: makeCompressor(sampleRate)
+                    });
+                }
+            }
+        }
+
+        function pitchPass() {
+            if (Math.abs(semitones) < 1e-9) return;
+            report('pitch', 0, 1);
+            for (var ch = 0; ch < channels.length; ch++) {
+                channels[ch] = pitchShiftMono(channels[ch], sampleRate, semitones, {
+                    fftSize: opts.fftSize,
+                    onProgress: function (p) { report('pitch', p.done, p.total); }
+                });
+            }
+        }
+
+        if (order === 'ice-first') { icePass(); pitchPass(); }
+        else { pitchPass(); icePass(); }
+
+        if (opts.normalize !== false) normalizePeak(channels, -1);
+        return { channels: channels, sampleRate: sampleRate };
+    }
+
+    /**
+     * 浏览器处理链：机械层走 OfflineAudioContext（与 Scratch 一致的节点图），
+     * 变调走相位声码器。输入输出都是 AudioBuffer（采样率/长度/声道数不变）。
+     */
+    function transformBuffer(audioBuffer, opts) {
+        opts = opts || {};
+        var layers = Math.max(1, Math.min(99, opts.layers || 1));
+        var semitones = clamp(opts.pitchSemitones || 0, -24, 24);
+        var freq = opts.robotFreq || ROBOT.carrierFreq;
+        var order = opts.order || 'pitch-first';
+        var monoOnly = !!opts.monoOnly;
+        var engine = opts.engine || (hasWebAudio() ? 'webaudio' : 'js');
+        var sampleRate = audioBuffer.sampleRate;
+
+        function report(stage, layer, total) {
+            if (opts.onProgress) opts.onProgress({ stage: stage, layer: layer, total: total });
+        }
+
+        var channels = audioBufferToChannels(audioBuffer);
+        if (monoOnly && channels.length > 1) {
+            var mixed = new Float32Array(channels[0].length);
+            for (var c = 0; c < channels.length; c++) {
+                for (var i = 0; i < mixed.length; i++) mixed[i] += channels[c][i] / channels.length;
+            }
+            channels = [mixed];
+        }
+
+        function pitchPass() {
+            if (Math.abs(semitones) < 1e-9) return Promise.resolve();
+            report('pitch', 0, 1);
+            var ch = 0;
+            function next() {
+                if (ch >= channels.length) return Promise.resolve();
+                var idx = ch++;
+                return Promise.resolve(pitchShiftMono(channels[idx], sampleRate, semitones, {
+                    fftSize: opts.fftSize,
+                    onProgress: function (p) { report('pitch', p.done, p.total); }
+                })).then(function (out) { channels[idx] = out; return next(); });
+            }
+            return next();
+        }
+
+        function icePass() {
+            if (engine !== 'webaudio') {
+                var shape = makeWaveShaper(buildDiodeCurve());
+                var carrier = buildCarrierTable(sampleRate, freq);
+                var hp = highpassCoeffs(sampleRate, ROBOT.highpass.freq, ROBOT.highpass.q);
+                for (var L = 0; L < layers; L++) {
+                    report('ice', L + 1, layers);
+                    for (var ch = 0; ch < channels.length; ch++) {
+                        channels[ch] = applyRobotLayer(channels[ch], sampleRate, {
+                            freq: freq, shape: shape, carrier: carrier, hp: hp,
+                            comp: makeCompressor(sampleRate)
+                        });
+                    }
+                }
+                return Promise.resolve();
+            }
+            var L2 = 0;
+            function nextLayer() {
+                if (L2 >= layers) return Promise.resolve();
+                report('ice', L2 + 1, layers);
+                var ch2 = 0;
+                function nextCh() {
+                    if (ch2 >= channels.length) return Promise.resolve();
+                    var idx = ch2++;
+                    return applyRobotLayerWebAudio(channels[idx], sampleRate, freq)
+                        .then(function (rendered) {
+                            channels[idx] = new Float32Array(rendered.getChannelData(0));
+                            return nextCh();
+                        });
+                }
+                return nextCh().then(nextLayer);
+            }
+            return nextLayer();
+        }
+
+        var chain = (order === 'ice-first') ? icePass().then(pitchPass) : pitchPass().then(icePass);
+        return chain.then(function () {
+            if (opts.normalize !== false) normalizePeak(channels, -1);
+            var ctx = audioBuffer.context || new (window.AudioContext || window.webkitAudioContext)();
+            return channelsToAudioBuffer(ctx, channels, sampleRate);
+        });
+    }
+
+    /* ---------------------------------------------------------
+     * 八、自检
+     * --------------------------------------------------------- */
+
+    function selfTest() {
+        var checks = [];
+        function check(name, ok, detail) {
+            checks.push({ name: name, ok: !!ok, detail: detail || '' });
+        }
+        var fs = 44100;
+
+        // 1) WAV 编解码往返
+        try {
+            var t = new Float32Array(fs / 10);
+            for (var i = 0; i < t.length; i++) t[i] = 0.6 * Math.sin(2 * Math.PI * 440 * i / fs);
+            var wav = encodeWav({ sampleRate: fs, channels: [t] }, 16);
+            var back = decodeWav(wav);
+            var maxErr = 0;
+            for (i = 0; i < t.length; i++) maxErr = Math.max(maxErr, Math.abs(back.channels[0][i] - t[i]));
+            check('WAV 编解码往返', maxErr < 0.001, '最大误差 ' + maxErr.toExponential(2));
+        } catch (e) {
+            check('WAV 编解码往返', false, e.message);
+        }
+
+        // 2) 单层机械音效：1kHz 正弦应出现 ±50Hz 边带（环形调制特征）
+        try {
+            var s = new Float32Array(fs); // 1 秒
+            for (i = 0; i < s.length; i++) s[i] = 0.5 * Math.sin(2 * Math.PI * 1000 * i / fs);
+            var out1 = applyRobotLayer(s, fs, {});
+            var carrier = goertzel(s, fs, 1000);
+            var side1 = goertzel(out1, fs, 950);
+            var side2 = goertzel(out1, fs, 1050);
+            var carrierAfter = goertzel(out1, fs, 1000);
+            check('机械音效边带(950/1050Hz)', side1 > carrier * 0.02 && side2 > carrier * 0.02,
+                '边带能量 ' + side1.toFixed(4) + '/' + side2.toFixed(4) + ' vs 载波 ' + carrier.toFixed(4));
+            check('机械音效改变原始信号', rms(out1) > 0.001 && Math.abs(rms(out1) - rms(s)) > 0.001,
+                'RMS ' + rms(s).toFixed(4) + ' → ' + rms(out1).toFixed(4));
+            check('载波被抑制', carrierAfter < carrier * 0.9, '1kHz 能量 ' + carrier.toFixed(4) + ' → ' + carrierAfter.toFixed(4));
+        } catch (e) {
+            check('机械音效边带(950/1050Hz)', false, e.message);
+        }
+
+        // 3) 多层叠加：层数越多，与原始信号差异越大
+        try {
+            var base = new Float32Array(fs / 2);
+            for (i = 0; i < base.length; i++) base[i] = 0.4 * Math.sin(2 * Math.PI * 600 * i / fs) * (0.5 + 0.5 * Math.sin(2 * Math.PI * 3 * i / fs));
+            var l1 = applyRobotLayer(base, fs, {});
+            var l2 = applyRobotLayer(l1, fs, {});
+            var l4 = l2;
+            for (var k = 0; k < 2; k++) l4 = applyRobotLayer(l4, fs, {});
+            var d12 = rms(sub(l1, l2));
+            var d24 = rms(sub(l4, l2));
+            check('多层叠加产生递进变化', d12 > 0 && d24 > 0 && Math.abs(d24 - d12) > 0,
+                '相邻层差异 RMS: 1→2 ' + d12.toFixed(4) + ', 2→4 ' + d24.toFixed(4));
+        } catch (e) {
+            check('多层叠加产生递进变化', false, e.message);
+        }
+
+        // 4) 变调：440Hz +12 半音 → 约 880Hz，且时长不变
+        try {
+            var p = new Float32Array(fs);
+            for (i = 0; i < p.length; i++) p[i] = 0.5 * Math.sin(2 * Math.PI * 440 * i / fs);
+            var shifted = pitchShiftMono(p, fs, 12, {});
+            var dom = dominantFrequency(shifted, fs, 600, 1200);
+            check('变调 +12 半音 (440→880Hz)', Math.abs(dom - 880) / 880 < 0.05,
+                '实测主频 ' + dom.toFixed(1) + ' Hz');
+            check('变调不改时长', shifted.length === p.length, p.length + ' → ' + shifted.length + ' 样本');
+            var shiftedDown = pitchShiftMono(p, fs, -12, {});
+            var domDown = dominantFrequency(shiftedDown, fs, 150, 400);
+            check('变调 -12 半音 (440→220Hz)', Math.abs(domDown - 220) / 220 < 0.05,
+                '实测主频 ' + domDown.toFixed(1) + ' Hz');
+        } catch (e) {
+            check('变调 440→880Hz', false, e.message);
+        }
+
+        return { ok: checks.every(function (c) { return c.ok; }), checks: checks };
+    }
+
+    function sub(a, b) {
+        var r = new Float32Array(Math.min(a.length, b.length));
+        for (var i = 0; i < r.length; i++) r[i] = a[i] - b[i];
+        return r;
+    }
+
+    /* ---------------------------------------------------------
+     * 导出
+     * --------------------------------------------------------- */
+
+    return {
+        version: VERSION,
+        SOURCE: SOURCE,
+        ROBOT: ROBOT,
+        // WAV
+        decodeWav: decodeWav,
+        encodeWav: encodeWav,
+        // 纯 JS 引擎
+        buildDiodeCurve: buildDiodeCurve,
+        makeWaveShaper: makeWaveShaper,
+        buildCarrierTable: buildCarrierTable,
+        highpassCoeffs: highpassCoeffs,
+        makeCompressor: makeCompressor,
+        applyRobotLayer: applyRobotLayer,
+        pitchShiftMono: pitchShiftMono,
+        transformChannels: transformChannels,
+        // WebAudio 引擎
+        hasWebAudio: hasWebAudio,
+        buildRobotGraph: buildRobotGraph,
+        applyRobotLayerWebAudio: applyRobotLayerWebAudio,
+        transformBuffer: transformBuffer,
+        // 工具
+        rms: rms,
+        peakOf: peakOf,
+        normalizePeak: normalizePeak,
+        goertzel: goertzel,
+        dominantFrequency: dominantFrequency,
+        audioBufferToChannels: audioBufferToChannels,
+        channelsToAudioBuffer: channelsToAudioBuffer,
+        selfTest: selfTest
+    };
+});
+
+</script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+
+  var state = {
+    origBuffer: null, procBuffer: null,
+    origUrl: null, procUrl: null,
+    dirHandle: null, lastBlob: null, lastName: ''
+  };
+
+  // ---------- 1. 导入 ----------
+  var drop = $('drop'), fileInput = $('file');
+  drop.addEventListener('click', function(){ fileInput.click(); });
+  drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', function(){ drop.classList.remove('over'); });
+  drop.addEventListener('drop', function(e){
+    e.preventDefault(); drop.classList.remove('over');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', function(){
+    if (fileInput.files && fileInput.files[0]) loadFile(fileInput.files[0]);
+  });
+
+  function loadFile(f){
+    var fr = new FileReader();
+    fr.onload = function(){
+      var arr = fr.result;
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      var ac = new Ctx();
+      ac.decodeAudioData(arr.slice(0), function(buf){
+        state.origBuffer = buf;
+        revoke(state.origUrl);
+        state.origUrl = bufToUrl(buf);
+        $('origAudio').src = state.origUrl;
+        $('origMeta').textContent = buf.sampleRate + ' Hz · ' + buf.numberOfChannels + ' 声道';
+        $('origDur').textContent = buf.duration.toFixed(2) + ' s';
+        $('fileStatus').innerHTML = '<span class="ok">已导入：</span> ' + escapeHtml(f.name) +
+          ' · ' + (f.size/1024).toFixed(1) + ' KB · ' + buf.duration.toFixed(2) + ' s';
+        $('processBtn').disabled = false;
+        $('downloadOrigBtn').disabled = false;
+        setProc('已就绪，可调参后点「处理并预览」');
+      }, function(err){
+        $('fileStatus').innerHTML = '<span class="bad">解码失败：</span>' + (err && err.message || err);
+      });
+    };
+    fr.readAsArrayBuffer(f);
+  }
+
+  function bufToUrl(buf){
+    var wav = IceVoice.encodeWav({ sampleRate: buf.sampleRate, channels: IceVoice.audioBufferToChannels(buf), length: buf.length }, 16);
+    return URL.createObjectURL(new Blob([wav], { type:'audio/wav' }));
+  }
+  function revoke(u){ if (u) URL.revokeObjectURL(u); }
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  // ---------- 2. 参数联动 ----------
+  $('layers').addEventListener('input', function(){ $('layersVal').textContent = this.value; });
+  $('pitch').addEventListener('input', function(){
+    var v = parseInt(this.value, 10);
+    $('pitchVal').textContent = (v>0?'+':'') + v;
+    $('pitchHint').textContent = v===0 ? '0 = 原调。正数升调、负数降调，时长不变（相位声码器）。'
+      : (v>0 ? '升 ' + v + ' 半音（不变速）' : '降 ' + (-v) + ' 半音（不变速）');
+  });
+  var orderSeg = $('orderSeg');
+  orderSeg.addEventListener('click', function(e){
+    if (e.target.tagName !== 'BUTTON') return;
+    [].forEach.call(orderSeg.children, function(b){ b.classList.remove('on'); });
+    e.target.classList.add('on');
+  });
+  function getOrder(){ return orderSeg.querySelector('.on').getAttribute('data-v'); }
+  function getEngine(){
+    var v = $('engine').value;
+    if (v === 'auto') return IceVoice.hasWebAudio() ? 'webaudio' : 'js';
+    return v;
+  }
+
+  // ---------- 3. 处理 ----------
+  $('processBtn').addEventListener('click', process);
+  function setProc(t){ $('procStatus').textContent = t; }
+  function setProg(p){ $('progBar').style.width = Math.max(0, Math.min(100, p*100)) + '%'; }
+
+  function process(){
+    if (!state.origBuffer) return;
+    var btn = $('processBtn');
+    btn.disabled = true;
+    var opts = {
+      layers: parseInt($('layers').value, 10),
+      pitchSemitones: parseInt($('pitch').value, 10),
+      order: getOrder(),
+      engine: getEngine(),
+      normalize: true,
+      onProgress: function(p){
+        var ratio = p.stage === 'ice' ? 0.7 : 0.3;
+        var layerPart = p.stage === 'ice' ? (p.layer / p.total) : (p.done / Math.max(1,p.total));
+        setProg(ratio * layerPart + (p.stage === 'pitch' ? 0.0 : 0.0));
+        setProc(p.stage === 'ice' ? ('寒冰处理中 第 ' + p.layer + '/' + p.total + ' 层…')
+          : ('变调处理中 ' + p.done + '/' + p.total + '…'));
+      }
+    };
+    setProc('开始处理…');
+    IceVoice.transformBuffer(state.origBuffer, opts).then(function(out){
+      state.procBuffer = out;
+      revoke(state.procUrl);
+      state.procUrl = bufToUrl(out);
+      $('iceAudio').src = state.procUrl;
+      $('iceMeta').textContent = out.sampleRate + ' Hz · ' + out.numberOfChannels + ' 声道';
+      $('iceDur').textContent = out.duration.toFixed(2) + ' s';
+      setProg(1);
+      setProc('✅ 处理完成，可对比预览。' + (opts.pitchSemitones ? '（已变调 ' + (opts.pitchSemitones>0?'+':'') + opts.pitchSemitones + ' 半音，时长不变）' : ''));
+      $('downloadBtn').disabled = false;
+      $('backupNowBtn').disabled = !state.dirHandle;
+      btn.disabled = false;
+      // 自动下载
+      if ($('autoDl').checked) downloadIce();
+    }).catch(function(e){
+      setProc('<span class="bad">处理出错：</span>' + (e && e.message || e));
+      btn.disabled = false;
+    });
+  }
+
+  // ---------- 下载 ----------
+  function makeBlob(buffer){
+    var wav = IceVoice.encodeWav({ sampleRate: buffer.sampleRate, channels: IceVoice.audioBufferToChannels(buffer), length: buffer.length }, 16);
+    return { blob: new Blob([wav], { type:'audio/wav' }), buf: wav };
+  }
+  function fname(tag){
+    var d = new Date();
+    var p = function(n){ return (n<10?'0':'') + n; };
+    var ts = d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+    return '寒冰版_' + tag + '_' + ts + '.wav';
+  }
+  function triggerDownload(blob, name){
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  }
+  function downloadIce(){
+    if (!state.procBuffer) return;
+    var m = makeBlob(state.procBuffer);
+    state.lastBlob = m.blob; state.lastName = fname('L'+$('layers').value+'_P'+$('pitch').value);
+    triggerDownload(m.blob, state.lastName);
+    setProc('⬇ 已下载：' + state.lastName);
+    if (state.dirHandle) saveToWorkspace(m.blob, state.lastName);
+  }
+  function downloadOrig(){
+    if (!state.origBuffer) return;
+    var m = makeBlob(state.origBuffer);
+    triggerDownload(m.blob, fname('原声'));
+  }
+  $('downloadBtn').addEventListener('click', downloadIce);
+  $('downloadOrigBtn').addEventListener('click', downloadOrig);
+
+  // ---------- 4. E 盘工作区 ----------
+  var hasFSA = ('showDirectoryPicker' in window);
+  $('connectBtn').addEventListener('click', async function(){
+    if (!hasFSA){
+      $('fsStatus').innerHTML = '<span class="warn">当前浏览器不支持文件夹访问（需 Edge/Chrome）。将仅使用浏览器下载，不写 C 盘。</span>';
+      return;
+    }
+    try{
+      var h = await window.showDirectoryPicker();
+      state.dirHandle = h;
+      $('fsStatus').innerHTML = '<span class="ok">已连接：</span> ' + h.name +
+        '（输出→工具默认保存输出音频路径/，备份→backups/）';
+      $('backupNowBtn').disabled = !state.procBuffer;
+    }catch(e){
+      $('fsStatus').innerHTML = '<span class="warn">未选择文件夹：</span>' + (e.message||e);
+    }
+  });
+
+  async function saveToWorkspace(blob, name){
+    if (!state.dirHandle) return;
+    try{
+      var outDir = await state.dirHandle.getDirectoryHandle('工具默认保存输出音频路径', { create:true });
+      await writeFile(outDir, name, blob);
+      var bkDir = await state.dirHandle.getDirectoryHandle('backups', { create:true });
+      await writeFile(bkDir, name, blob);
+      $('fsStatus').innerHTML = '<span class="ok">已保存到 E 盘工作区：</span> ' + name +
+        '（输出 + 备份 各一份）';
+    }catch(e){
+      $('fsStatus').innerHTML = '<span class="bad">写入工作区失败：</span>' + (e.message||e) + '（已通过浏览器下载兜底）';
+    }
+  }
+  async function writeFile(dir, name, blob){
+    var f = await dir.getFileHandle(name, { create:true });
+    var w = await f.createWritable();
+    await w.write(blob); await w.close();
+  }
+  $('backupNowBtn').addEventListener('click', function(){
+    if (state.lastBlob) saveToWorkspace(state.lastBlob, state.lastName);
+    else if (state.procBuffer){ var m = makeBlob(state.procBuffer); state.lastBlob=m.blob; state.lastName=fname('L'+$('layers').value); saveToWorkspace(m.blob, state.lastName); }
+  });
+
+  // ---------- 校验上游算法 ----------
+  $('verifyBtn').addEventListener('click', async function(){
+    var btn = $('verifyBtn'); btn.textContent = '🔍 校验中…';
+    try{
+      var r = await fetch(IceVoice.SOURCE.robotEffectRaw);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var txt = await r.text();
+      var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+      var hex = [].map.call(new Uint8Array(buf), function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+      var match = hex === IceVoice.SOURCE.robotEffectSha256;
+      $('verInfo').innerHTML = match
+        ? '<span class="ok">✔ 与上游一致</span>'
+        : '<span class="warn">⚠ 上游可能有更新</span>';
+      btn.innerHTML = match
+        ? '✔ 已校验：算法与 scratch-gui 一致'
+        : '⚠ 算法与记录版本不同（上游可能更新）';
+      btn.title = '本地记录 sha256: ' + IceVoice.SOURCE.robotEffectSha256 + '\n线上 sha256: ' + hex;
+    }catch(e){
+      btn.textContent = '❌ 校验失败（需联网）';
+      $('verInfo').innerHTML = '<span class="bad">需联网访问 raw.githubusercontent.com</span>';
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
