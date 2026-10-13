@@ -97,7 +97,7 @@
     <h1>❄ 寒冰变声器</h1>
     <p>把任意音频叠上 N 层 Scratch / TurboWarp「机械」音效，并可不变速升/降调 —— 寒冰动画同款搞笑特效</p>
     <span class="badge" id="verifyBtn">🔍 校验上游算法 (Scratch robot-effect.js)</span>
-    <span class="pill" id="verInfo">核心库 v1.0.0</span>
+    <span class="pill" id="verInfo">核心库 v2.0.0</span>
   </header>
 
   <!-- 1. 导入 -->
@@ -137,9 +137,9 @@
       <div class="field">
         <label>引擎（一般自动即可）</label>
         <select id="engine">
-          <option value="auto">自动（优先 WebAudio，与 Scratch 一致）</option>
-          <option value="webaudio">WebAudio（离线渲染，最还原）</option>
-          <option value="js">纯 JS（无 WebAudio 时兜底）</option>
+          <option value="js" selected>纯 JS（推荐·最稳·跨浏览器）</option>
+          <option value="webaudio">WebAudio（浏览器原生·实验性）</option>
+          <option value="auto">自动</option>
         </select>
       </div>
     </div>
@@ -176,8 +176,8 @@
     <h2><span class="n">4</span> 本地工作区缓存与备份</h2>
     <div class="note">
       推荐工作区：把本工具文件夹放到任意本地目录（例如 <b>D:\ice-voice</b> 或移动硬盘）<br>
-      连接后，每次处理的结果会自动保存到此目录下的 <b>输出/</b> 子目录，并额外备份一份到 <b>backups/</b>。
-      需要 Chromium 内核浏览器（Edge / Chrome）；若不可用则降级为普通下载，默认不写系统盘。
+      点「连接工作区」选择一个目录（建议选 E 盘目录）后，每次处理的结果会自动保存到此目录下的 <b>输出/</b> 子目录，并额外备份一份到 <b>backups/</b>。<br>
+      未连接工作区时，「自动下载」会落到浏览器默认下载目录（通常是 C 盘）；连接 E 盘工作区后可避免往系统盘写大文件。需要 Chromium 内核浏览器（Edge / Chrome）。
     </div>
     <div class="actions" style="margin-top:12px">
       <button class="btn ghost" id="connectBtn">🔗 连接 E 盘工作区</button>
@@ -214,7 +214,7 @@ const res = IceVoice.transformChannels(audio, { layers: 4, pitchSemitones: -3 })
 fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
     </details>
     <div class="note" style="margin-top:8px">
-      完整说明见仓库 <b>API接入说明书.md</b>；开源发布教程见 <b>GITHUB上传教程.md</b>。
+      完整说明见仓库 <b>API接入说明书.md</b>。
     </div>
   </div>
 
@@ -266,7 +266,7 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
 })(typeof self !== 'undefined' ? self : this, function () {
     'use strict';
 
-    var VERSION = '1.0.0';
+    var VERSION = '2.0.0';
 
     /* ---------------------------------------------------------
      * 一、算法常量（与上游 robot-effect.js 逐值对应）
@@ -1002,7 +1002,7 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
         var freq = opts.robotFreq || ROBOT.carrierFreq;
         var order = opts.order || 'pitch-first';
         var monoOnly = !!opts.monoOnly;
-        var engine = opts.engine || (hasWebAudio() ? 'webaudio' : 'js');
+        var engine = opts.engine || 'js'; // 默认纯 JS 引擎：最稳、跨浏览器、与 Scratch 算法等价
         var sampleRate = audioBuffer.sampleRate;
 
         function report(stage, layer, total) {
@@ -1034,36 +1034,48 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
         }
 
         function icePass() {
-            if (engine !== 'webaudio') {
-                var shape = makeWaveShaper(buildDiodeCurve());
-                var carrier = buildCarrierTable(sampleRate, freq);
-                var hp = highpassCoeffs(sampleRate, ROBOT.highpass.freq, ROBOT.highpass.q);
-                for (var L = 0; L < layers; L++) {
-                    report('ice', L + 1, layers);
-                    for (var ch = 0; ch < channels.length; ch++) {
-                        channels[ch] = applyRobotLayer(channels[ch], sampleRate, {
-                            freq: freq, shape: shape, carrier: carrier, hp: hp,
-                            comp: makeCompressor(sampleRate)
-                        });
-                    }
-                }
-                return Promise.resolve();
+            // 共享内核（与层无关，只算一次）：纯 JS 实现的二极管非线性 + 载波 + 高通 + 压缩器
+            var shared = {
+                shape: makeWaveShaper(buildDiodeCurve()),
+                carrier: buildCarrierTable(sampleRate, freq),
+                hp: highpassCoeffs(sampleRate, ROBOT.highpass.freq, ROBOT.highpass.q),
+                comp: makeCompressor(sampleRate)
+            };
+            function jsLayer(x) {
+                return applyRobotLayer(x, sampleRate, {
+                    freq: freq, shape: shared.shape, carrier: shared.carrier,
+                    hp: shared.hp, comp: shared.comp
+                });
             }
-            var L2 = 0;
-            function nextLayer() {
-                if (L2 >= layers) return Promise.resolve();
-                report('ice', L2 + 1, layers);
-                var ch2 = 0;
-                function nextCh() {
-                    if (ch2 >= channels.length) return Promise.resolve();
-                    var idx = ch2++;
-                    return applyRobotLayerWebAudio(channels[idx], sampleRate, freq)
-                        .then(function (rendered) {
-                            channels[idx] = new Float32Array(rendered.getChannelData(0));
-                            return nextCh();
-                        });
+            if (engine === 'webaudio') {
+                // 实验性：浏览器原生离线渲染；任一通道渲染失败则回退纯 JS，保证一定有输出
+                var L2 = 0;
+                function nextLayer() {
+                    if (L2 >= layers) return Promise.resolve();
+                    report('ice', L2 + 1, layers);
+                    var ch2 = 0;
+                    function nextCh() {
+                        if (ch2 >= channels.length) return Promise.resolve();
+                        var idx = ch2++;
+                        return applyRobotLayerWebAudio(channels[idx], sampleRate, freq)
+                            .then(function (rendered) {
+                                channels[idx] = new Float32Array(rendered.getChannelData(0));
+                                return nextCh();
+                            })
+                            .catch(function () { channels[idx] = jsLayer(channels[idx]); return nextCh(); });
+                    }
+                    return nextCh().then(nextLayer);
                 }
-                return nextCh().then(nextLayer);
+                return nextLayer();
+            }
+            // 默认纯 JS 引擎：逐层处理，层间让出主线程（进度条可刷新、UI 不卡死），保证确定性出声
+            var L = 0;
+            function nextLayer() {
+                if (L >= layers) return Promise.resolve();
+                report('ice', L + 1, layers);
+                for (var ch = 0; ch < channels.length; ch++) channels[ch] = jsLayer(channels[ch]);
+                L++;
+                return new Promise(function (res) { setTimeout(res, 0); }).then(nextLayer);
             }
             return nextLayer();
         }
@@ -1229,6 +1241,8 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
     origUrl: null, procUrl: null,
     dirHandle: null, lastBlob: null, lastName: ''
   };
+  // 确保「自动下载」默认开启（用户诉求：自动下载默认打开）
+  if ($('autoDl')) $('autoDl').checked = true;
 
   // ---------- 1. 导入 ----------
   var drop = $('drop'), fileInput = $('file');
@@ -1291,11 +1305,11 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
     e.target.classList.add('on');
   });
   function getOrder(){ return orderSeg.querySelector('.on').getAttribute('data-v'); }
-  function getEngine(){
-    var v = $('engine').value;
-    if (v === 'auto') return IceVoice.hasWebAudio() ? 'webaudio' : 'js';
-    return v;
-  }
+    function getEngine(){
+      var v = $('engine').value;
+      if (v === 'auto' || !v) return 'js'; // auto 默认纯 JS 引擎
+      return v;
+    }
 
   // ---------- 3. 处理 ----------
   $('processBtn').addEventListener('click', process);
@@ -1336,7 +1350,9 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
       // 自动下载
       if ($('autoDl').checked) downloadIce();
     }).catch(function(e){
-      setProc('<span class="bad">处理出错：</span>' + (e && e.message || e));
+      var msg = (e && (e.message || e.stack)) || e || '未知错误';
+      setProc('<span class="bad">处理出错：</span> ' + msg);
+      console.error('[寒冰变声器] 处理失败：', e);
       btn.disabled = false;
     });
   }

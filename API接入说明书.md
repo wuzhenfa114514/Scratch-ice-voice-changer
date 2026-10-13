@@ -39,7 +39,7 @@ const out = await IceVoice.transformBuffer(audioBuffer, {
   layers: 3,            // 寒冰层数 N（1~99，默认 1）
   pitchSemitones: 5,    // 变调半音 -24~24（0 = 不变调；只改音高、不改速度）
   order: 'pitch-first', // 'pitch-first'（先变调后寒冰）| 'ice-first'（先寒冰后变调）
-  engine: 'auto',       // 'auto' | 'webaudio' | 'js'；浏览器默认 webaudio
+  engine: 'auto',       // 'auto' | 'webaudio' | 'js'；默认纯 JS 引擎（最稳，跨浏览器）
   normalize: true,      // 处理后峰值归一化到 -1 dB（避免过载）
   onProgress: (p) => {  // 可选，进度回调
     // p = { stage:'ice'|'pitch', layer, total } 或 { stage:'pitch', done, total }
@@ -93,7 +93,7 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16))); // 16/24/
 | `layers` | number | 1 | 寒冰（机械音效）叠加层数，1~99。越大越冰冷夸张。 |
 | `pitchSemitones` | number | 0 | 变调半音，-24~+24。**只改音高、不改时长**（相位声码器）。 |
 | `order` | string | `'pitch-first'` | 处理顺序：`pitch-first` 先变调后寒冰；`ice-first` 先寒冰后变调。两者听感略有差异。 |
-| `engine` | string | `'auto'` | `'webaudio'`（浏览器，最还原）/ `'js'`（兜底）/ `'auto'`。 |
+| `engine` | string | `'js'` | `'js'`（默认·最稳·跨浏览器）/ `'webaudio'`（浏览器原生·实验性）/ `'auto'`（=纯 JS）。 |
 | `normalize` | boolean | `true` | 输出峰值归一化到 -1 dB。 |
 | `onProgress` | function | — | 进度回调，便于做进度条。 |
 
@@ -120,7 +120,7 @@ Node 侧同理：先 `decodeWav` 你的 WAV → 你的处理 → `transformChann
 ## 5. 错误处理
 
 - 输入不是合法 WAV：`decodeWav` 抛 `Error('不是有效的 WAV 文件…')` / `'WAV 缺少 fmt 块'` 等 —— 捕获后提示用户换文件。
-- 浏览器不支持 WebAudio：把 `engine` 设为 `'js'`，或 `transformBuffer` 会自动降级。
+- 引擎选择：默认即纯 JS 引擎（确定可出声、跨浏览器一致）；`webaudio` 为浏览器原生离线渲染实验模式，任一通道渲染失败会自动回退纯 JS，保证一定有输出。
 - 变调范围外：参数会被 `clamp` 到 [-24, 24]，不会崩。
 - 层数过多导致卡顿：纯 JS 引擎是逐样本 CPU 计算，超长音频 + 高层数会慢；建议先在小段上试。
 

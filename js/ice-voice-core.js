@@ -39,7 +39,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
     'use strict';
 
-    var VERSION = '1.0.0';
+    var VERSION = '2.0.0';
 
     /* ---------------------------------------------------------
      * 一、算法常量（与上游 robot-effect.js 逐值对应）
@@ -775,7 +775,7 @@
         var freq = opts.robotFreq || ROBOT.carrierFreq;
         var order = opts.order || 'pitch-first';
         var monoOnly = !!opts.monoOnly;
-        var engine = opts.engine || (hasWebAudio() ? 'webaudio' : 'js');
+        var engine = opts.engine || 'js'; // 默认纯 JS 引擎：最稳、跨浏览器、与 Scratch 算法等价
         var sampleRate = audioBuffer.sampleRate;
 
         function report(stage, layer, total) {
@@ -807,36 +807,48 @@
         }
 
         function icePass() {
-            if (engine !== 'webaudio') {
-                var shape = makeWaveShaper(buildDiodeCurve());
-                var carrier = buildCarrierTable(sampleRate, freq);
-                var hp = highpassCoeffs(sampleRate, ROBOT.highpass.freq, ROBOT.highpass.q);
-                for (var L = 0; L < layers; L++) {
-                    report('ice', L + 1, layers);
-                    for (var ch = 0; ch < channels.length; ch++) {
-                        channels[ch] = applyRobotLayer(channels[ch], sampleRate, {
-                            freq: freq, shape: shape, carrier: carrier, hp: hp,
-                            comp: makeCompressor(sampleRate)
-                        });
-                    }
-                }
-                return Promise.resolve();
+            // 共享内核（与层无关，只算一次）：纯 JS 实现的二极管非线性 + 载波 + 高通 + 压缩器
+            var shared = {
+                shape: makeWaveShaper(buildDiodeCurve()),
+                carrier: buildCarrierTable(sampleRate, freq),
+                hp: highpassCoeffs(sampleRate, ROBOT.highpass.freq, ROBOT.highpass.q),
+                comp: makeCompressor(sampleRate)
+            };
+            function jsLayer(x) {
+                return applyRobotLayer(x, sampleRate, {
+                    freq: freq, shape: shared.shape, carrier: shared.carrier,
+                    hp: shared.hp, comp: shared.comp
+                });
             }
-            var L2 = 0;
-            function nextLayer() {
-                if (L2 >= layers) return Promise.resolve();
-                report('ice', L2 + 1, layers);
-                var ch2 = 0;
-                function nextCh() {
-                    if (ch2 >= channels.length) return Promise.resolve();
-                    var idx = ch2++;
-                    return applyRobotLayerWebAudio(channels[idx], sampleRate, freq)
-                        .then(function (rendered) {
-                            channels[idx] = new Float32Array(rendered.getChannelData(0));
-                            return nextCh();
-                        });
+            if (engine === 'webaudio') {
+                // 实验性：浏览器原生离线渲染；任一通道渲染失败则回退纯 JS，保证一定有输出
+                var L2 = 0;
+                function nextLayer() {
+                    if (L2 >= layers) return Promise.resolve();
+                    report('ice', L2 + 1, layers);
+                    var ch2 = 0;
+                    function nextCh() {
+                        if (ch2 >= channels.length) return Promise.resolve();
+                        var idx = ch2++;
+                        return applyRobotLayerWebAudio(channels[idx], sampleRate, freq)
+                            .then(function (rendered) {
+                                channels[idx] = new Float32Array(rendered.getChannelData(0));
+                                return nextCh();
+                            })
+                            .catch(function () { channels[idx] = jsLayer(channels[idx]); return nextCh(); });
+                    }
+                    return nextCh().then(nextLayer);
                 }
-                return nextCh().then(nextLayer);
+                return nextLayer();
+            }
+            // 默认纯 JS 引擎：逐层处理，层间让出主线程（进度条可刷新、UI 不卡死），保证确定性出声
+            var L = 0;
+            function nextLayer() {
+                if (L >= layers) return Promise.resolve();
+                report('ice', L + 1, layers);
+                for (var ch = 0; ch < channels.length; ch++) channels[ch] = jsLayer(channels[ch]);
+                L++;
+                return new Promise(function (res) { setTimeout(res, 0); }).then(nextLayer);
             }
             return nextLayer();
         }

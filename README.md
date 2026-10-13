@@ -1,6 +1,6 @@
 # ❄ 寒冰变声器 · Ice Voice Changer
 
-内容完全由AI生成，请斟酌使用！
+此项目纯由AI生成，斟酌使用！
 
 把任意音频叠上 **N 层 Scratch / TurboWarp「机械」音效**，并可**不变速**地升 / 降调 —— 寒冰动画同款搞笑音频特效。
 
@@ -69,7 +69,6 @@ github最终上传库/
 │  ├─ ai-demo.js               # AI 接入最小示例
 │  └─ demo_*.wav               # 演示音频
 ├─ API接入说明书.md            # 给开发者 / AI 的接入文档（根目录）
-├─ GITHUB上传教程.md           # 开源发布到 GitHub 的步骤（根目录）
 ├─ LICENSE                     # MIT
 └─ README.md
 ```

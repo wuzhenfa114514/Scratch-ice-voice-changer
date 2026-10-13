@@ -97,7 +97,7 @@
     <h1>❄ 寒冰变声器</h1>
     <p>把任意音频叠上 N 层 Scratch / TurboWarp「机械」音效，并可不变速升/降调 —— 寒冰动画同款搞笑特效</p>
     <span class="badge" id="verifyBtn">🔍 校验上游算法 (Scratch robot-effect.js)</span>
-    <span class="pill" id="verInfo">核心库 v1.0.0</span>
+    <span class="pill" id="verInfo">核心库 v2.0.0</span>
   </header>
 
   <!-- 1. 导入 -->
@@ -137,9 +137,9 @@
       <div class="field">
         <label>引擎（一般自动即可）</label>
         <select id="engine">
-          <option value="auto">自动（优先 WebAudio，与 Scratch 一致）</option>
-          <option value="webaudio">WebAudio（离线渲染，最还原）</option>
-          <option value="js">纯 JS（无 WebAudio 时兜底）</option>
+          <option value="js" selected>纯 JS（推荐·最稳·跨浏览器）</option>
+          <option value="webaudio">WebAudio（浏览器原生·实验性）</option>
+          <option value="auto">自动</option>
         </select>
       </div>
     </div>
@@ -176,8 +176,8 @@
     <h2><span class="n">4</span> 本地工作区缓存与备份</h2>
     <div class="note">
       推荐工作区：把本工具文件夹放到任意本地目录（例如 <b>D:\ice-voice</b> 或移动硬盘）<br>
-      连接后，每次处理的结果会自动保存到此目录下的 <b>输出/</b> 子目录，并额外备份一份到 <b>backups/</b>。
-      需要 Chromium 内核浏览器（Edge / Chrome）；若不可用则降级为普通下载，默认不写系统盘。
+      点「连接工作区」选择一个目录（建议选 E 盘目录）后，每次处理的结果会自动保存到此目录下的 <b>输出/</b> 子目录，并额外备份一份到 <b>backups/</b>。<br>
+      未连接工作区时，「自动下载」会落到浏览器默认下载目录（通常是 C 盘）；连接 E 盘工作区后可避免往系统盘写大文件。需要 Chromium 内核浏览器（Edge / Chrome）。
     </div>
     <div class="actions" style="margin-top:12px">
       <button class="btn ghost" id="connectBtn">🔗 连接 E 盘工作区</button>
@@ -214,7 +214,7 @@ const res = IceVoice.transformChannels(audio, { layers: 4, pitchSemitones: -3 })
 fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
     </details>
     <div class="note" style="margin-top:8px">
-      完整说明见仓库 <b>API接入说明书.md</b>；开源发布教程见 <b>GITHUB上传教程.md</b>。
+      完整说明见仓库 <b>API接入说明书.md</b>。
     </div>
   </div>
 
@@ -255,6 +255,8 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
     origUrl: null, procUrl: null,
     dirHandle: null, lastBlob: null, lastName: ''
   };
+  // 确保「自动下载」默认开启（用户诉求：自动下载默认打开）
+  if ($('autoDl')) $('autoDl').checked = true;
 
   // ---------- 1. 导入 ----------
   var drop = $('drop'), fileInput = $('file');
@@ -317,11 +319,11 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
     e.target.classList.add('on');
   });
   function getOrder(){ return orderSeg.querySelector('.on').getAttribute('data-v'); }
-  function getEngine(){
-    var v = $('engine').value;
-    if (v === 'auto') return IceVoice.hasWebAudio() ? 'webaudio' : 'js';
-    return v;
-  }
+    function getEngine(){
+      var v = $('engine').value;
+      if (v === 'auto' || !v) return 'js'; // auto 默认纯 JS 引擎
+      return v;
+    }
 
   // ---------- 3. 处理 ----------
   $('processBtn').addEventListener('click', process);
@@ -362,7 +364,9 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
       // 自动下载
       if ($('autoDl').checked) downloadIce();
     }).catch(function(e){
-      setProc('<span class="bad">处理出错：</span>' + (e && e.message || e));
+      var msg = (e && (e.message || e.stack)) || e || '未知错误';
+      setProc('<span class="bad">处理出错：</span> ' + msg);
+      console.error('[寒冰变声器] 处理失败：', e);
       btn.disabled = false;
     });
   }
