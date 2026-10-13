@@ -173,11 +173,11 @@
 
   <!-- 4. E 盘缓存/备份 -->
   <div class="card">
-    <h2><span class="n">4</span> E 盘工作区缓存与备份</h2>
+    <h2><span class="n">4</span> 本地工作区缓存与备份</h2>
     <div class="note">
-      推荐工作区：<b>E:\wuzhenfapack\下载\Scratch寒冰html动画编辑器\寒冰变声器AI工作区</b><br>
-      连接后，每次处理的结果会自动保存到此目录下的 <b>工具默认保存输出音频路径/</b>，并额外备份一份到 <b>backups/</b>。
-      需要 Chromium 内核浏览器（Edge / Chrome）；若不可用则降级为普通下载，不写 C 盘。
+      推荐工作区：把本工具文件夹放到任意本地目录（例如 <b>D:\ice-voice</b> 或移动硬盘）<br>
+      连接后，每次处理的结果会自动保存到此目录下的 <b>输出/</b> 子目录，并额外备份一份到 <b>backups/</b>。
+      需要 Chromium 内核浏览器（Edge / Chrome）；若不可用则降级为普通下载，默认不写系统盘。
     </div>
     <div class="actions" style="margin-top:12px">
       <button class="btn ghost" id="connectBtn">🔗 连接 E 盘工作区</button>
@@ -214,7 +214,7 @@ const res = IceVoice.transformChannels(audio, { layers: 4, pitchSemitones: -3 })
 fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
     </details>
     <div class="note" style="margin-top:8px">
-      完整说明见仓库 <b>docs/API接入说明书.md</b>；开源发布教程见 <b>docs/GITHUB上传教程.md</b>。
+      完整说明见仓库 <b>API接入说明书.md</b>；开源发布教程见 <b>GITHUB上传教程.md</b>。
     </div>
   </div>
 
