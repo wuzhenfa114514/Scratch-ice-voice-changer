@@ -1,7 +1,5 @@
 # ❄ 寒冰变声器 · Ice Voice Changer
 
-目前全部代码由AI生成，请斟酌使用
-
 把任意音频叠上 **N 层 Scratch / TurboWarp「机械」音效**，并可**不变速**地升 / 降调 —— 寒冰动画同款搞笑音频特效。
 
 > 「寒冰声音」是什么？是作者在做 Scratch 动画时用的机械化音效（Scratch 声音编辑器里的「机械」效果），
@@ -62,7 +60,8 @@ github最终上传库/
 │  └─ ice-voice-core.js        # 核心库 UMD（WAV编解码 / 机械音效 / 相位声码器变调 / 自检）
 ├─ tools/
 │  ├─ ice-cli.js               # 命令行版
-│  └─ build-standalone.js      # 生成单文件版
+│  ├─ build-standalone.js      # 生成单文件版
+│  └─ push-github.bat          # Windows 一键把整个目录推送到 GitHub
 ├─ examples/
 │  ├─ generate-demos.js        # 生成演示 WAV
 │  ├─ ai-demo.js               # AI 接入最小示例
@@ -74,6 +73,21 @@ github最终上传库/
 └─ README.md
 ```
 
+## ⚠️ 克隆/下载本仓库后必读
+
+`index.html` 是**模块化版**，它通过 `<script src="js/ice-voice-core.js">` 加载核心库。所以：
+
+- **要保证能跑，`js/` 文件夹必须和 `index.html` 放在一起。** 如果你在 GitHub 网页上只上传了根目录那几个文件，在线打开 `index.html` 会因为找不到核心库而无法运行（页面会给出明确提示）。
+- **最省心的办法：下载 `寒冰变声器_单文件版.html`。** 它已把核心库内联进页面，是真正的单文件，双击即用、也能直接发给朋友，Release 附件就是它。
+- 用 git 克隆本仓库则无需担心，文件夹结构是完整的。
+
+验证仓库是否完整，在线访问下面这个地址应该返回 200 而不是 404：
+
+```
+https://raw.githubusercontent.com/<你的用户名>/<仓库名>/main/js/ice-voice-core.js
+```
+
 ## 📜 许可证
+
 
 MIT License。算法移植自 Scratch / TurboWarp（BSD 风格），可自由用于开源或商业项目。

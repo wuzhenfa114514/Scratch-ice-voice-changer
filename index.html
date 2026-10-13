@@ -225,6 +225,27 @@ fs.writeFileSync('out.wav', Buffer.from(IceVoice.encodeWav(res, 16)));</pre>
 
 <script src="js/ice-voice-core.js"></script>
 <script>
+//---- 防呆：核心库缺失时给出明确出路，而不是白屏 ----
+(function(){
+  if (typeof window.IceVoice !== 'undefined') return;
+  var msg =
+    '<div style="max-width:660px;margin:60px auto;padding:28px 32px;border-radius:16px;' +
+    'background:#2a1416;border:1px solid #7f1d1d;color:#fca5a5;font-family:system-ui,\'Microsoft YaHei\',sans-serif;line-height:1.8">' +
+    '<h2 style="margin:0 0 12px;color:#fecaca;font-size:20px">&#9888; 核心库 js/ice-voice-core.js 没能加载</h2>' +
+    '<p style="margin:0 0 14px;color:#fecaca">本页面需要同目录下的 <code>js/ice-voice-core.js</code> 才能运行。常见原因：</p>' +
+    '<ol style="margin:0 0 14px;padding-left:22px">' +
+    '<li>从 GitHub 在线打开时，仓库里<strong>漏传了 js 文件夹</strong> —— 请把仓库根目录的 <code>js/</code> 文件夹（内含 ice-voice-core.js）一并上传。</li>' +
+    '<li>文件被单独移动到了别处 —— 请确保 <code>index.html</code> 与 <code>js/</code> 文件夹放在一起。</li>' +
+    '</ol>' +
+    '<p style="margin:0;color:#e5e5e5">最省事的办法：直接使用<strong style="color:#a5f3fc">单文件版</strong> <code>寒冰变声器_单文件版.html</code>，它把核心库内联进了页面，不需要任何附属文件，双击即用。</p>' +
+    '</div>';
+  document.addEventListener('DOMContentLoaded', function(){
+    if (document.getElementById('appRoot')) { document.getElementById('appRoot').innerHTML = msg; }
+    else { document.body.innerHTML = msg; }
+  });
+})();
+</script>
+<script>
 (function(){
   'use strict';
   var $ = function(id){ return document.getElementById(id); };
